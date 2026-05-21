@@ -51,6 +51,7 @@ export default function App() {
   const [favFilter, setFavFilter] = useState(false);
 
   const [view, setView] = useState('list');
+  const [layout, setLayout] = useLocalStorage('mountkh_layout', 'grid');
   const [provider, setProvider] = useState('osm');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [detailMountain, setDetailMountain] = useState(null);
@@ -197,6 +198,8 @@ export default function App() {
         onFavFilterChange={setFavFilter}
         view={view}
         onToggleView={() => setView(v => v === 'list' ? 'map' : 'list')}
+        layout={layout}
+        onToggleLayout={() => setLayout(l => l === 'grid' ? 'list' : 'grid')}
         theme={theme}
         onToggleTheme={toggleTheme}
         lang={lang}
@@ -225,6 +228,7 @@ export default function App() {
             onToggleFav={toggleFav}
             onSelect={showDetail}
             lang={lang}
+            layout={layout}
           />
         ) : (
           <MapView
@@ -234,6 +238,7 @@ export default function App() {
             gmapsKey={gmapsKey}
             onInitGmaps={handleGmapsInit}
             onSelect={showDetail}
+            theme={theme}
           />
         )}
       </main>
@@ -246,6 +251,7 @@ export default function App() {
         onToggleFav={toggleFav}
         t={t}
         lang={lang}
+        theme={theme}
       />
 
       <Sidebar

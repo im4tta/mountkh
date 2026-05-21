@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Heart, ExternalLink, MapPin } from 'lucide-react';
+import { X, Heart, ExternalLink } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import { FCODE_META, COUNTRY_META, elevClass, getMountainNames, findNameMatch, haversine } from '../lib/utils';
@@ -8,7 +8,7 @@ const khmerFlag = '🇰🇭';
 const thaiFlag = '🇹🇭';
 const laosFlag = '🇱🇦';
 
-export default function DetailPanel({ mountain, open, onClose, isFav, onToggleFav, t, lang }) {
+export default function DetailPanel({ mountain, open, onClose, isFav, onToggleFav, t, lang, theme }) {
   const meta = FCODE_META[mountain?.fcode] || FCODE_META.PT;
   const cm = COUNTRY_META[mountain?.country] || COUNTRY_META.KH;
   const elev = mountain?.elev ? `${mountain.elev}m` : mountain?.dem ? `${mountain.dem}m (DEM)` : 'Unknown';
@@ -61,10 +61,14 @@ export default function DetailPanel({ mountain, open, onClose, isFav, onToggleFa
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-[60] bg-black/30" onClick={onClose} />
+        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm" onClick={onClose} />
       )}
-      <div className={`fixed inset-x-0 bottom-0 z-[70] bg-[var(--bg-elevated)] rounded-t-2xl shadow-2xl border-t border-[var(--border)] transform transition-transform duration-300 max-h-[85vh] flex flex-col ${open ? 'translate-y-0' : 'translate-y-full'}`}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
+      <div className={`fixed z-[70] bg-[var(--bg-elevated)] shadow-2xl border border-[var(--border)] transform transition-all duration-300 flex flex-col overflow-hidden
+        inset-x-0 bottom-0 rounded-t-2xl max-h-[85vh]
+        md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg md:max-h-[80vh] md:rounded-2xl
+        ${open ? 'translate-y-0 md:scale-100 md:opacity-100' : 'translate-y-full md:translate-y-0 md:scale-95 md:opacity-0 pointer-events-none'}
+      `}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-lg font-bold truncate">{mountain._name}</h2>
             <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${cm.cls === 'kh' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-900' : cm.cls === 'th' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900' : cm.cls === 'la' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900' : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900'}`}>
@@ -145,8 +149,9 @@ export default function DetailPanel({ mountain, open, onClose, isFav, onToggleFa
                 whenCreated={(map) => { mapRef.current = map; }}
               >
                 <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  key={theme}
+                  attribution={theme === 'dark' ? '&copy; <a href="https://carto.com/">CARTO</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>' : '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'}
+                  url={theme === 'dark' ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
                 />
                 <Marker position={[mountain.lat, mountain.lon]}>
                   <Popup>{mountain._name}</Popup>

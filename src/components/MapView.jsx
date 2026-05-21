@@ -23,7 +23,7 @@ function MapBounds({ items }) {
   return null;
 }
 
-export default function MapView({ mountains, provider, gmapsReady, gmapsKey, onInitGmaps, onSelect }) {
+export default function MapView({ mountains, provider, gmapsReady, gmapsKey, onInitGmaps, onSelect, theme }) {
   const mapRef = useRef(null);
   const [center, setCenter] = useState([12.5, 104.5]);
   const [zoom, setZoom] = useState(7);
@@ -34,28 +34,38 @@ export default function MapView({ mountains, provider, gmapsReady, gmapsKey, onI
 
   const osmItems = provider === 'osm' ? mountains.slice(0, 500) : [];
 
+  const darkGMapStyles = [
+    { featureType: 'all', elementType: 'labels.text.fill', stylers: [{ color: '#eaeaee' }] },
+    { featureType: 'all', elementType: 'geometry', stylers: [{ color: '#16162a' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0d1a3a' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ visibility: 'off' }] },
+  ];
+
   // Initialize Google Maps
   useEffect(() => {
     if (provider !== 'gmaps' || !gmapsKey) return;
     if (gmapsReady && gmapDivRef.current && !gmapInstanceRef.current) {
       try {
-        const isDark = document.documentElement.classList.contains('dark');
         gmapInstanceRef.current = new window.google.maps.Map(gmapDivRef.current, {
           center: { lat: 12.5, lng: 104.5 },
           zoom: 7,
           mapTypeId: 'terrain',
-          styles: isDark ? [
-            { featureType: 'all', elementType: 'labels.text.fill', stylers: [{ color: '#eaeaee' }] },
-            { featureType: 'all', elementType: 'geometry', stylers: [{ color: '#16162a' }] },
-            { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0d1a3a' }] },
-            { featureType: 'road', elementType: 'geometry', stylers: [{ visibility: 'off' }] },
-          ] : [],
+          styles: theme === 'dark' ? darkGMapStyles : [],
         });
       } catch (e) {
         console.error('GMap init error', e);
       }
     }
-  }, [provider, gmapsReady, gmapsKey]);
+  }, [provider, gmapsReady, gmapsKey, theme]);
+
+  // Update Google Maps theme reactively
+  useEffect(() => {
+    if (gmapInstanceRef.current) {
+      gmapInstanceRef.current.setOptions({
+        styles: theme === 'dark' ? darkGMapStyles : [],
+      });
+    }
+  }, [theme]);
 
   // Update Google Maps markers
   useEffect(() => {
@@ -146,8 +156,9 @@ export default function MapView({ mountains, provider, gmapsReady, gmapsKey, onI
         >
           <MapController center={center} zoom={zoom} />
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            key={theme}
+            attribution={theme === 'dark' ? '&copy; <a href="https://carto.com/">CARTO</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>' : '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors'}
+            url={theme === 'dark' ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
             maxZoom={18}
           />
           {osmItems.map((m) => {

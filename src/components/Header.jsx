@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Menu, Map as MapIcon, List, Settings, Search, Moon, Sun, Heart, Mountain, ChevronDown } from 'lucide-react';
+import { Menu, Map as MapIcon, List, LayoutGrid, LayoutList, Settings, Search, Moon, Sun, Heart, Mountain } from 'lucide-react';
 import { FCODE_META } from '../lib/utils';
 
 const TABS = [
@@ -20,6 +20,7 @@ export default function Header({
   sort, onSortChange,
   favFilter, onFavFilterChange,
   view, onToggleView,
+  layout, onToggleLayout,
   theme, onToggleTheme,
   lang, onToggleLang,
   onMenu,
@@ -78,6 +79,11 @@ export default function Header({
         <button onClick={onToggleView} className="p-2 rounded-lg hover:bg-[var(--border)] text-[var(--text-secondary)]" aria-label="Toggle view">
           {view === 'list' ? <MapIcon className="w-5 h-5" /> : <List className="w-5 h-5" />}
         </button>
+        {view === 'list' && (
+          <button onClick={onToggleLayout} className="p-2 rounded-lg hover:bg-[var(--border)] text-[var(--text-secondary)]" aria-label="Toggle layout">
+            {layout === 'grid' ? <LayoutList className="w-5 h-5" /> : <LayoutGrid className="w-5 h-5" />}
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-2 px-3 pb-2">
