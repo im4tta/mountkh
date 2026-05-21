@@ -54,7 +54,7 @@
       ]
     },
     {
-      "source": "/mountains*.json",
+      "source": "/mountains(.*)",
       "headers": [
         {
           "key": "Cache-Control",
