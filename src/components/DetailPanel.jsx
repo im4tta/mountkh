@@ -61,9 +61,9 @@ export default function DetailPanel({ mountain, open, onClose, isFav, onToggleFa
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm" onClick={onClose} />
+        <div className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm" onClick={onClose} />
       )}
-      <div className={`fixed z-[70] bg-[var(--bg-elevated)] shadow-2xl border border-[var(--border)] transform transition-all duration-300 flex flex-col overflow-hidden
+      <div className={`fixed z-[1001] bg-[var(--bg-elevated)] shadow-2xl border border-[var(--border)] transform transition-all duration-300 flex flex-col overflow-hidden
         inset-x-0 bottom-0 rounded-t-2xl max-h-[85vh]
         md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg md:max-h-[80vh] md:rounded-2xl
         ${open ? 'translate-y-0 md:scale-100 md:opacity-100' : 'translate-y-full md:translate-y-0 md:scale-95 md:opacity-0 pointer-events-none'}

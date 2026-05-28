@@ -41,9 +41,9 @@ export default function Sidebar({ open, onClose, total, highest, withElev, t, la
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-[70] bg-black/40" onClick={onClose} />
+        <div className="fixed inset-0 z-[1000] bg-black/40" onClick={onClose} />
       )}
-      <aside className={`fixed top-0 left-0 h-full w-80 max-w-[85vw] z-[80] bg-[var(--bg-elevated)] border-r border-[var(--border)] shadow-2xl transform transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed top-0 left-0 h-full w-80 max-w-[85vw] z-[1001] bg-[var(--bg-elevated)] border-r border-[var(--border)] shadow-2xl transform transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
           <h2 className="text-lg font-bold flex items-center gap-2">
             <Mountain className="w-5 h-5 text-[var(--accent)]" />
