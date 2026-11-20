@@ -259,21 +259,21 @@ export default function TerrainView({ mountains, onSelect, theme, focusTarget, o
 
       <div className="pointer-events-none absolute inset-0 z-[500] p-3 sm:p-5">
         <div className="flex items-start justify-between gap-3">
-          <div className="map-panel pointer-events-auto max-w-[300px] px-4 py-3">
+          <div className="map-panel pointer-events-auto max-w-[calc(100%-3.5rem)] px-3 py-2.5 sm:max-w-[300px] sm:px-4 sm:py-3">
             <div className="eyebrow flex items-center gap-1.5"><Compass className="h-3 w-3" /> 3D terrain · Cambodia</div>
             <h2 className="serif mt-1 text-lg font-bold leading-tight">Explore the highlands</h2>
-            <p className="mt-1 text-[10px] leading-relaxed text-[var(--muted)]">Real elevation from DEM tiles. Drag to orbit · scroll to zoom · right-drag to tilt.</p>
-            <div className="mt-3 flex gap-2">
+            <p className="mt-1 hidden text-[10px] leading-relaxed text-[var(--muted)] sm:block">Real elevation from DEM tiles. Drag to orbit · scroll to zoom · right-drag to tilt.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
               {['satellite', 'topo'].map((key) => (
-                <button key={key} onClick={() => setBase(key)} className={`rounded-sm border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${base === key ? 'border-[var(--forest)] bg-[var(--forest)] text-white' : 'border-[var(--rule)] text-[var(--muted)]'}`}>
+                <button key={key} onClick={() => setBase(key)} className={`min-h-9 rounded-sm border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${base === key ? 'border-[var(--forest)] bg-[var(--forest)] text-white' : 'border-[var(--rule)] text-[var(--muted)]'}`}>
                   {key === 'satellite' ? 'Satellite' : 'Topographic'}
                 </button>
               ))}
-              <button onClick={resetView} className="grid h-7 w-7 place-items-center rounded-sm border border-[var(--rule)] text-[var(--muted)] hover:text-[var(--ink)]" title="Reset view" aria-label="Reset view"><RotateCcw className="h-3.5 w-3.5" /></button>
+              <button onClick={resetView} className="grid h-9 w-9 place-items-center rounded-sm border border-[var(--rule)] text-[var(--muted)] hover:text-[var(--ink)]" title="Reset view" aria-label="Reset view"><RotateCcw className="h-3.5 w-3.5" /></button>
               <button
                 onClick={() => onSummit?.(focusTarget || mountains[0])}
                 disabled={!mountains.length}
-                className="rounded-sm border border-[var(--rust)] bg-[var(--rust)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white disabled:opacity-40"
+                className="min-h-9 rounded-sm border border-[var(--rust)] bg-[var(--rust)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white disabled:opacity-40"
               >
                 {t('standOnSummit')}
               </button>

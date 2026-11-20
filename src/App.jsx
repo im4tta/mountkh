@@ -212,7 +212,7 @@ export default function App() {
 
       <StatsBar total={mountainsRaw.length} showing={filtered.length} search={search.trim()} provider={provider} t={t} />
 
-      <main className="relative min-h-0 flex-1">
+      <main className="app-main relative min-h-0 flex-1">
         {view === 'list' ? (
           <ListView
             mountains={filtered} featured={featured} skin={homeSkin}

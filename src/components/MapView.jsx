@@ -135,24 +135,24 @@ export default function MapView({ mountains, provider, onProviderChange, onSelec
 
       <div className="pointer-events-none absolute inset-0 z-[500] p-3 sm:p-5">
         <div className="flex items-start justify-between gap-3">
-          <div className="map-panel pointer-events-auto flex items-center gap-3 px-3.5 py-2.5">
+          <div className="map-panel pointer-events-auto flex min-w-0 items-center gap-2 px-3 py-2 sm:gap-3 sm:px-3.5 sm:py-2.5">
             <MountainPin className="h-7 w-7 text-[var(--forest)]" />
             <div className="leading-tight">
-              <div className="serif text-[15px] font-bold text-[var(--ink)]">{items.length.toLocaleString()} {t('shownOnMap')}</div>
-              <div className="text-[9px] uppercase tracking-[0.12em] text-[var(--muted)]">{mountains.length > MAX_MARKERS ? `${MAX_MARKERS}+ shown` : t('explore')}</div>
+              <div className="serif text-[13px] font-bold text-[var(--ink)] sm:text-[15px]">{items.length.toLocaleString()} {t('shownOnMap')}</div>
+              <div className="hidden text-[9px] uppercase tracking-[0.12em] text-[var(--muted)] sm:block">{mountains.length > MAX_MARKERS ? `${MAX_MARKERS}+ shown` : t('explore')}</div>
             </div>
           </div>
 
           <div className="map-panel pointer-events-auto flex items-center p-1">
             {['google', 'osm'].map((key) => (
-              <button key={key} onClick={() => handleProvider(key)} className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors ${provider === key ? 'bg-[var(--forest)] text-white' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
-                {key === 'google' ? t('googleMaps') : t('osm')}
+              <button key={key} onClick={() => handleProvider(key)} className={`min-h-9 whitespace-nowrap px-2.5 py-1.5 text-[10px] font-bold uppercase sm:px-3 tracking-wide transition-colors ${provider === key ? 'bg-[var(--forest)] text-white' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
+                {key === 'google' ? <><span className="sm:hidden">Google</span><span className="hidden sm:inline">{t('googleMaps')}</span></> : t('osm')}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="absolute bottom-5 left-3 sm:left-5"><Legend t={t} /></div>
+        <div className="absolute bottom-5 left-3 hidden sm:left-5 sm:block"><Legend t={t} /></div>
 
         {!mountains.length && (
           <div className="pointer-events-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">

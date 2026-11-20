@@ -11,7 +11,7 @@ export default function FilterPanel({
   if (!open) return null;
 
   return (
-    <div className="relative z-30 shrink-0 border-b border-[var(--rule)] bg-[var(--paper-2)] px-4 py-4 sm:px-6 animate-fade-up">
+    <div className="relative z-30 max-h-[60dvh] shrink-0 overflow-y-auto border-b border-[var(--rule)] bg-[var(--paper-2)] px-4 py-4 sm:px-6 animate-fade-up">
       <div className="mx-auto max-w-[1400px]">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -19,7 +19,7 @@ export default function FilterPanel({
             <span className="eyebrow">{t('filters')}</span>
             {filterCount > 0 && <span className="chip border-[var(--rust)] text-[var(--rust)]">{filterCount}</span>}
           </div>
-          <button onClick={onClear} disabled={!filterCount} className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--muted)] hover:text-[var(--rust)] disabled:opacity-40">
+          <button onClick={onClear} disabled={!filterCount} className="flex min-h-10 items-center gap-1.5 text-[11px] font-semibold text-[var(--muted)] hover:text-[var(--rust)] disabled:opacity-40">
             <RotateCcw className="h-3.5 w-3.5" /> {t('clearFilters')}
           </button>
         </div>
@@ -34,7 +34,7 @@ export default function FilterPanel({
           ].map((field) => (
             <label key={field.label} className="flex flex-col gap-1.5">
               <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">{field.label}</span>
-              <select className="field h-9 text-[11px]" value={field.value} onChange={(e) => field.onChange(e.target.value)}>
+              <select className="field h-11 text-[11px] sm:h-9" value={field.value} onChange={(e) => field.onChange(e.target.value)}>
                 {field.options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </label>
