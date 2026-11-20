@@ -10,7 +10,11 @@ maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
 const DEM_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 const SATELLITE_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-const TOPO_TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TOPO_TILES = [
+  'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
+];
 
 const TERRAIN_STYLE = {
   version: 8,
@@ -24,7 +28,7 @@ const TERRAIN_STYLE = {
     },
     topo: {
       type: 'raster',
-      tiles: [TOPO_TILES],
+      tiles: TOPO_TILES,
       tileSize: 256,
       maxzoom: 19,
       attribution: '&copy; OpenStreetMap contributors',
@@ -74,6 +78,7 @@ export default function TerrainView({ mountains, onSelect, theme, focusTarget, t
   const dataRef = useRef(mountains);
   const selectRef = useRef(onSelect);
   const [ready, setReady] = useState(false);
+  const [styleReady, setStyleReady] = useState(false);
   const [unsupported, setUnsupported] = useState(false);
   const [base, setBase] = useState('satellite');
 
@@ -104,6 +109,7 @@ export default function TerrainView({ mountains, onSelect, theme, focusTarget, t
     let initialized = false;
     const addPeaks = () => {
       if (!map.getStyle() || map.getSource('peaks')) return;
+      setStyleReady(true);
       try {
         if (!map.getTerrain()) map.setTerrain({ source: 'dem', exaggeration: 1.6 });
         map.addSource('peaks', {
@@ -201,15 +207,22 @@ export default function TerrainView({ mountains, onSelect, theme, focusTarget, t
     });
   }, [mountains, ready, onSelect]);
 
-  // Base layer + hillshade switching.
+  // Base layer switching. Re-applied whenever the style becomes available.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready) return;
-    const isSat = base === 'satellite';
-    ['satellite', 'topo', 'hillshade'].forEach((id) => {
-      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', id === (isSat ? 'satellite' : 'topo') ? 'visible' : 'none');
-    });
-  }, [base, ready]);
+    if (!map || !styleReady) return;
+    const apply = () => {
+      const isSat = base === 'satellite';
+      ['satellite', 'topo', 'hillshade'].forEach((id) => {
+        if (!map.getLayer(id)) return;
+        const visible = id === (isSat ? 'satellite' : 'topo');
+        map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+      });
+    };
+    apply();
+    map.once('styledata', apply);
+    return () => map.off('styledata', apply);
+  }, [base, styleReady]);
 
   // Fly to a feature selected elsewhere in the app.
   useEffect(() => {

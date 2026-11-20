@@ -41,7 +41,7 @@ export default function App() {
 
   const [view, setView] = useState('list');
   const [provider, setProvider] = useState('google');
-  const [homeSkin, setHomeSkin] = useLocalStorage('mountkh_home', 'atlas');
+  const [homeSkin, setHomeSkin] = useLocalStorage('mountkh_home_v2', 'explorer');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [detailMountain, setDetailMountain] = useState(null);
