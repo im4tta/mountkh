@@ -32,7 +32,7 @@ function Fact({ label, value, mono }) {
 
 export default function DetailPanel({
   mountain, open, onClose, isFav, onToggleFav,
-  t, lang, theme, onShowOnMap, onToast,
+  t, lang, theme, onShowOnMap, onShowSummit, onToast,
 }) {
   const meta = FCODE_META[mountain?.fcode] || FCODE_META.PT;
   const country = COUNTRY_META[mountain?.country] || COUNTRY_META.KH;
@@ -171,6 +171,7 @@ export default function DetailPanel({
             <button onClick={handleCopyCoords} className="btn"><Copy className="h-4 w-4" /> {t('copyCoords')}</button>
             <button onClick={handleShare} className="btn"><MountainGlyph name="share" className="h-4 w-4" /> {t('share')}</button>
             <button onClick={() => setExportOpen(true)} className="btn"><MountainGlyph name="download" className="h-4 w-4" /> {t('exportPng')}</button>
+            <button onClick={() => onShowSummit(mountain)} className="btn btn-solid"><MountainGlyph name="mountain" className="h-4 w-4" /> {t('summitView')}</button>
             <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${mountain.lat},${mountain.lon}`)}`} target="_blank" rel="noopener noreferrer" className="btn">
               <ExternalLink className="h-4 w-4" /> {t('googleMaps')}
             </a>

@@ -71,7 +71,7 @@ function cssColor(variable, fallback) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
-export default function TerrainView({ mountains, onSelect, theme, focusTarget, t }) {
+export default function TerrainView({ mountains, onSelect, theme, focusTarget, onSummit, t }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -270,6 +270,13 @@ export default function TerrainView({ mountains, onSelect, theme, focusTarget, t
                 </button>
               ))}
               <button onClick={resetView} className="grid h-7 w-7 place-items-center rounded-sm border border-[var(--rule)] text-[var(--muted)] hover:text-[var(--ink)]" title="Reset view" aria-label="Reset view"><RotateCcw className="h-3.5 w-3.5" /></button>
+              <button
+                onClick={() => onSummit?.(focusTarget || mountains[0])}
+                disabled={!mountains.length}
+                className="rounded-sm border border-[var(--rust)] bg-[var(--rust)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white disabled:opacity-40"
+              >
+                {t('standOnSummit')}
+              </button>
             </div>
           </div>
 

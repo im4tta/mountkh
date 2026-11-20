@@ -8,6 +8,7 @@ import ListView from './components/ListView';
 import MapView from './components/MapView';
 
 const TerrainView = lazy(() => import('./components/TerrainView'));
+const SummitView = lazy(() => import('./components/SummitView'));
 import DetailPanel from './components/DetailPanel';
 import Sidebar from './components/Sidebar';
 import StatsBar from './components/StatsBar';
@@ -47,6 +48,7 @@ export default function App() {
   const [detailMountain, setDetailMountain] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [mapFocus, setMapFocus] = useState(null);
+  const [summitMountain, setSummitMountain] = useState(null);
   const [toast, setToast] = useState('');
 
   const t = useCallback((key) => I18N[lang]?.[key] ?? I18N.en[key] ?? key, [lang]);
@@ -141,6 +143,11 @@ export default function App() {
     setMapFocus({ lat: m.lat, lon: m.lon, id: m.id, at: Date.now() });
   }, []);
 
+  const showSummit = useCallback((m) => {
+    setDetailOpen(false);
+    setSummitMountain(m);
+  }, []);
+
   const shuffle = useCallback(() => {
     const pool = filtered.length ? filtered : mountainsRaw;
     if (pool.length) showDetail(pool[Math.floor(Math.random() * pool.length)]);
@@ -225,7 +232,7 @@ export default function App() {
           <Suspense fallback={<div className="grid h-full place-items-center bg-[var(--paper)]"><div className="text-xs font-semibold text-[var(--muted)]">Loading 3D terrain…</div></div>}>
             <TerrainView
               mountains={filtered} onSelect={showDetail} theme={theme}
-              focusTarget={mapFocus} t={t}
+              focusTarget={mapFocus} onSummit={showSummit} t={t}
             />
           </Suspense>
         )}
@@ -235,7 +242,7 @@ export default function App() {
         mountain={detailMountain} open={detailOpen} onClose={hideDetail}
         isFav={detailMountain ? favorites.includes(String(detailMountain.id)) : false}
         onToggleFav={toggleFav} t={t} lang={lang} theme={theme}
-        onShowOnMap={showOnMap} onToast={showToast}
+        onShowOnMap={showOnMap} onShowSummit={showSummit} onToast={showToast}
       />
 
       <Sidebar
@@ -245,6 +252,12 @@ export default function App() {
         homeSkin={homeSkin} onHomeSkin={setHomeSkin}
         provider={provider} onProviderChange={setProvider}
       />
+
+      {summitMountain && (
+        <Suspense fallback={<div className="fixed inset-0 z-[1100] grid place-items-center bg-[#0d1512] text-xs text-white">Loading summit view…</div>}>
+          <SummitView mountain={summitMountain} onClose={() => setSummitMountain(null)} t={t} />
+        </Suspense>
+      )}
 
       <Toast message={toast} onHide={() => setToast('')} />
     </div>

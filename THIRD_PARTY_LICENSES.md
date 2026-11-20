@@ -11,7 +11,7 @@ IconMCP — licensed under the MIT License.
 
 ## 3D terrain
 
-The 3D view uses [MapLibre GL JS](https://maplibre.org/) (BSD-3-Clause). Elevation comes from the public [AWS Terrarium](https://registry.opendata.aws/terrain-tiles/) dataset (Mapzen terrain tiles, public domain / CC0-derived sources). Satellite imagery is © Esri; the alternative base map is © OpenStreetMap contributors (ODbL).
+The 3D map view uses [MapLibre GL JS](https://maplibre.org/) (BSD-3-Clause) and the Summit 360° view uses [Three.js](https://threejs.org/) (MIT). Elevation comes from the public [AWS Terrarium](https://registry.opendata.aws/terrain-tiles/) dataset (Mapzen terrain tiles, public domain / CC0-derived sources). Satellite imagery is © Esri; the alternative base map is © OpenStreetMap contributors (ODbL).
 
 ## Other dependencies
 
