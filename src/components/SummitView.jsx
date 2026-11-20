@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import * as SunCalc from 'suncalc';
 import { Water } from 'three/examples/jsm/objects/Water.js';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { Compass, Loader2, RotateCcw, X, Play, Pause, Mountain, Footprints, Waves, Sun } from 'lucide-react';
 import { elevationOf, haversine } from '../lib/utils';
 
@@ -9,9 +10,10 @@ const ZOOM = 12;
 const GRID = 4;
 const TILE = 256;
 const SIZE = GRID * TILE;
-const SEGMENTS = 320;
+const MOBILE = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+const SEGMENTS = MOBILE ? 256 : 384;
 const EXAGGERATION = 1.35;
-const EYE_HEIGHT = 4;
+const EYE_HEIGHT = 6;
 
 const DEM_URL = (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
 const SAT_URL = (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
@@ -31,14 +33,67 @@ function loadImage(url) {
   });
 }
 
-function decodeTerrarium(data) {
-  return data[0] * 256 + data[1] + data[2] / 256 - 32768;
+// Read a DEM canvas's exact RGB bytes. A 2D canvas's getImageData is colour-managed
+// on iOS Safari, which corrupts Terrarium-encoded heights. WebGL with colour-space
+// conversion disabled returns the raw bytes on every browser.
+let rawGl = null;
+function readRawPixels(source) {
+  const w = source.naturalWidth || source.width;
+  const h = source.naturalHeight || source.height;
+  if (!rawGl) rawGl = document.createElement('canvas').getContext('webgl', { premultipliedAlpha: false });
+  const gl = rawGl;
+  if (!gl) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d'); ctx.drawImage(source, 0, 0);
+    return ctx.getImageData(0, 0, w, h).data;
+  }
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+  const fb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  const out = new Uint8Array(w * h * 4);
+  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, out);
+  gl.deleteFramebuffer(fb);
+  gl.deleteTexture(tex);
+  return out;
+}
+
+// Remove isolated spikes/holes left by bad DEM pixels (3x3 median-ish clamp).
+function despike(heights) {
+  const out = new Float32Array(heights);
+  for (let y = 1; y < SIZE - 1; y++) {
+    for (let x = 1; x < SIZE - 1; x++) {
+      const i = y * SIZE + x;
+      let min = Infinity, max = -Infinity, sum = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const v = heights[i + dy * SIZE + dx];
+        if (v < min) min = v; if (v > max) max = v; sum += v;
+      }
+      const v = heights[i];
+      if (v > max + 60 || v < min - 60 || v < -100 || v > 9000) out[i] = sum / 8;
+    }
+  }
+  return out;
 }
 
 function sampleHeight(heights, px, py) {
-  const x = Math.max(0, Math.min(SIZE - 1, Math.round(px)));
-  const y = Math.max(0, Math.min(SIZE - 1, Math.round(py)));
-  return heights[y * SIZE + x];
+  const x = Math.max(0, Math.min(SIZE - 1.001, px));
+  const y = Math.max(0, Math.min(SIZE - 1.001, py));
+  const x0 = Math.floor(x), y0 = Math.floor(y);
+  const fx = x - x0, fy = y - y0;
+  const i = y0 * SIZE + x0;
+  const a = heights[i], b = heights[i + 1], c = heights[i + SIZE], d = heights[i + SIZE + 1];
+  return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy;
 }
 
 function headingLabel(deg) {
@@ -94,7 +149,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
   const labelsRef = useRef(null);
   const walkRef = useRef(null);
   const jumpRef = useRef(onJump);
-  const stateRef = useRef({ yaw: 0, pitch: -3, fov: 74, auto: false });
+  const stateRef = useRef({ yaw: 0, pitch: -6, fov: 70, auto: false });
   const [status, setStatus] = useState('loading');
   const [auto, setAuto] = useState(false);
   const [walking, setWalking] = useState(false);
@@ -121,9 +176,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         const startX = cx - GRID / 2;
         const startY = cy - GRID / 2;
 
-        const demCanvas = document.createElement('canvas');
-        demCanvas.width = demCanvas.height = SIZE;
-        const demCtx = demCanvas.getContext('2d', { willReadFrequently: true });
+        const raw = new Float32Array(SIZE * SIZE);
         const satCanvas = document.createElement('canvas');
         satCanvas.width = satCanvas.height = SIZE;
         const satCtx = satCanvas.getContext('2d');
@@ -134,7 +187,14 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
             const x = Math.round(startX + col);
             const y = Math.round(startY + row);
             jobs.push(Promise.all([loadImage(DEM_URL(z, x, y)), loadImage(SAT_URL(z, x, y))]).then(([dem, sat]) => {
-              demCtx.drawImage(dem, col * TILE, row * TILE, TILE, TILE);
+              const px = readRawPixels(dem);
+              for (let ty = 0; ty < TILE; ty++) {
+                const rowOff = (row * TILE + ty) * SIZE + col * TILE;
+                for (let tx = 0; tx < TILE; tx++) {
+                  const k = (ty * TILE + tx) * 4;
+                  raw[rowOff + tx] = px[k] * 256 + px[k + 1] + px[k + 2] / 256 - 32768;
+                }
+              }
               satCtx.drawImage(sat, col * TILE, row * TILE, TILE, TILE);
             }));
           }
@@ -142,9 +202,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         await Promise.all(jobs);
         if (disposed) return;
 
-        const demData = demCtx.getImageData(0, 0, SIZE, SIZE).data;
-        const heights = new Float32Array(SIZE * SIZE);
-        for (let i = 0; i < heights.length; i++) heights[i] = decodeTerrarium(demData.subarray(i * 4, i * 4 + 4));
+        const heights = despike(raw);
 
         const gridCenterLon = lonFromTile(startX + GRID / 2, z);
         const gridCenterLat = latFromTile(startY + GRID / 2, z);
@@ -158,9 +216,19 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
 
         const px = Math.max(0, Math.min(SIZE - 1, SIZE / 2 + peakX / mPerPixel));
         const py = Math.max(0, Math.min(SIZE - 1, SIZE / 2 - peakZ / mPerPixel));
-        const demElev = sampleHeight(heights, px, py);
-        const elev = Math.max(elevationOf(mountain) || 0, demElev || 0);
-        setPeakElev(Math.round(elev));
+        // Snap to the highest DEM point within ~250 m: listed coordinates are often slightly off the top.
+        let bestX = px, bestY = py, demElev = sampleHeight(heights, px, py);
+        const r = Math.ceil(250 / mPerPixel);
+        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+          if (dx * dx + dy * dy > r * r) continue;
+          const hh = sampleHeight(heights, px + dx, py + dy);
+          if (hh > demElev) { demElev = hh; bestX = px + dx; bestY = py + dy; }
+        }
+        const summitX = (bestX - SIZE / 2) * mPerPixel;
+        const summitZ = -(bestY - SIZE / 2) * mPerPixel;
+        const elev = demElev;
+        const elevOffset = (elevationOf(mountain) || 0) > 0 ? elevationOf(mountain) - demElev : 0;
+        setPeakElev(Math.round(elevationOf(mountain) || demElev));
 
         const geometry = new THREE.PlaneGeometry(worldWidth, worldWidth, SEGMENTS, SEGMENTS);
         geometry.rotateX(-Math.PI / 2);
@@ -175,21 +243,30 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
 
         const texture = new THREE.CanvasTexture(satCanvas);
         texture.colorSpace = THREE.SRGBColorSpace;
-        texture.anisotropy = 4;
-        const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0, side: THREE.DoubleSide });
+        texture.anisotropy = 8;
+        texture.generateMipmaps = true;
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.95, metalness: 0 });
         const terrain = new THREE.Mesh(geometry, material);
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x9fc4d8);
-        scene.fog = new THREE.Fog(0x9fc4d8, worldWidth * 0.35, worldWidth * 1.1);
+        scene.fog = new THREE.Fog(0xb9d3e3, worldWidth * 0.25, worldWidth * 0.95);
+        const sky = new Sky();
+        sky.scale.setScalar(worldWidth * 3);
+        const skyU = sky.material.uniforms;
+        skyU.turbidity.value = 6;
+        skyU.rayleigh.value = 1.6;
+        skyU.mieCoefficient.value = 0.005;
+        skyU.mieDirectionalG.value = 0.8;
+        scene.add(sky);
         scene.add(terrain);
-        const ambient = new THREE.HemisphereLight(0xdceaff, 0x4d3f2e, 1.25);
+        const ambient = new THREE.HemisphereLight(0xdceaff, 0x5a4a35, 1.25);
         scene.add(ambient);
 
         // Real sun position for the current date/time at the peak.
         const sun = new THREE.DirectionalLight(0xfff3dd, 1.5);
         sun.castShadow = true;
-        sun.shadow.mapSize.set(2048, 2048);
+        sun.shadow.mapSize.set(MOBILE ? 1024 : 2048, MOBILE ? 1024 : 2048);
         const shadowExtent = worldWidth * 0.55;
         sun.shadow.camera.left = -shadowExtent;
         sun.shadow.camera.right = shadowExtent;
@@ -200,18 +277,18 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         sun.shadow.bias = -0.0004;
         scene.add(sun);
         scene.add(sun.target);
-        sun.target.position.set(peakX, 0, peakZ);
+        sun.target.position.set(summitX, 0, summitZ);
         terrain.receiveShadow = true;
         sunRef.current = sun;
 
         // Real water shader (Three.js Water) at sea level.
-        const normals = new THREE.TextureLoader().load('/textures/waternormals.jpg', () => renderer?.setPixelRatio(Math.min(window.devicePixelRatio, 2)));
+        const normals = new THREE.TextureLoader().load('/textures/waternormals.jpg');
         normals.wrapS = normals.wrapT = THREE.RepeatWrapping;
         const waterGeo = new THREE.PlaneGeometry(worldWidth, worldWidth);
         waterGeo.rotateX(-Math.PI / 2);
         const water = new Water(waterGeo, {
-          textureWidth: 512,
-          textureHeight: 512,
+          textureWidth: MOBILE ? 256 : 512,
+          textureHeight: MOBILE ? 256 : 512,
           waterNormals: normals,
           sunDirection: sunVector(mountain.lat, mountain.lon),
           sunColor: 0xffe6bd,
@@ -234,7 +311,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
             levelLine.geometry.dispose();
             levelLine.material.dispose();
           }
-          const pts = contourSegments(heights, level, mPerPixel, EXAGGERATION);
+          const pts = contourSegments(heights, level - elevOffset, mPerPixel, EXAGGERATION);
           if (!pts.length) { levelLine = null; return; }
           levelLine = new THREE.LineSegments(
             new THREE.BufferGeometry().setFromPoints(pts),
@@ -244,9 +321,10 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         };
         setLevelLine(elev);
 
-        const camera = new THREE.PerspectiveCamera(stateRef.current.fov, 1, 1, worldWidth * 4);
+        const camera = new THREE.PerspectiveCamera(stateRef.current.fov, 1, 2, worldWidth * 4);
         camera.rotation.order = 'YXZ';
-        camera.position.set(peakX, elev * EXAGGERATION + EYE_HEIGHT, peakZ);
+        camera.position.set(summitX, elev * EXAGGERATION + EYE_HEIGHT, summitZ);
+        const groundAt = (x, z) => sampleHeight(heights, SIZE / 2 + x / mPerPixel, SIZE / 2 - z / mPerPixel);
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
 
@@ -264,7 +342,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           const ppy = SIZE / 2 - local.z / mPerPixel;
           if (ppx < 0 || ppx >= SIZE || ppy < 0 || ppy >= SIZE) return;
           const h = sampleHeight(heights, ppx, ppy);
-          const vec = new THREE.Vector3(local.x, h * EXAGGERATION + 55, local.z);
+          const vec = new THREE.Vector3(local.x, h * EXAGGERATION + 40, local.z);
           const el = document.createElement('button');
           el.type = 'button';
           el.className = 'summit-peak-label';
@@ -280,11 +358,14 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           labelData.push({ vec, el });
         });
 
-        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer = new THREE.WebGLRenderer({ antialias: !MOBILE || window.devicePixelRatio < 2, powerPreference: 'high-performance' });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, MOBILE ? 1.75 : 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 0.55;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.domElement.style.cssText = 'width:100%;height:100%;display:block;touch-action:none;cursor:grab';
+        texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
         mountRef.current.appendChild(renderer.domElement);
 
         const resize = () => {
@@ -303,26 +384,56 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         const projected = new THREE.Vector3();
         let dragging = false;
         let lastX = 0, lastY = 0, pointerStartX = 0, pointerStartY = 0, moved = 0;
+        const pointers = new Map();
+        let pinchDist = 0;
+        let velYaw = 0, velPitch = 0;
+        const setFov = (fov) => {
+          stateRef.current.fov = Math.max(30, Math.min(95, fov));
+        };
         const down = (e) => {
-          dragging = true; moved = 0;
+          pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          renderer.domElement.setPointerCapture?.(e.pointerId);
+          if (pointers.size === 2) {
+            const [a, b] = [...pointers.values()];
+            pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+            moved = 999;
+            return;
+          }
+          dragging = true; moved = 0; velYaw = velPitch = 0;
           lastX = pointerStartX = e.clientX; lastY = pointerStartY = e.clientY;
           renderer.domElement.style.cursor = 'grabbing';
         };
         const move = (e) => {
+          if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (pointers.size === 2) {
+            const [a, b] = [...pointers.values()];
+            const d = Math.hypot(a.x - b.x, a.y - b.y);
+            if (pinchDist) setFov(stateRef.current.fov * (pinchDist / d));
+            pinchDist = d;
+            return;
+          }
           if (!dragging) return;
           const dx = e.clientX - lastX;
           const dy = e.clientY - lastY;
           lastX = e.clientX; lastY = e.clientY;
           moved += Math.abs(dx) + Math.abs(dy);
           if (walkRef.current) { walkRef.current = null; setWalking(false); }
-          stateRef.current.yaw -= dx * 0.22;
-          stateRef.current.pitch = Math.max(-80, Math.min(80, stateRef.current.pitch - dy * 0.16));
+          const k = stateRef.current.fov / 74;
+          const dYaw = -dx * 0.2 * k;
+          const dPitch = -dy * 0.15 * k;
+          stateRef.current.yaw += dYaw;
+          stateRef.current.pitch = Math.max(-80, Math.min(80, stateRef.current.pitch + dPitch));
+          velYaw = dYaw * 60; velPitch = dPitch * 60;
         };
         const up = (e) => {
+          pointers.delete(e.pointerId);
+          if (pointers.size) return;
+          pinchDist = 0;
           if (!dragging) return;
           dragging = false;
           renderer.domElement.style.cursor = 'grab';
-          if (Math.abs(e.clientX - pointerStartX) + Math.abs(e.clientY - pointerStartY) > 8) return;
+          if (moved > 8 || Math.abs(e.clientX - pointerStartX) + Math.abs(e.clientY - pointerStartY) > 8) return;
+          velYaw = velPitch = 0;
           const rect = renderer.domElement.getBoundingClientRect();
           ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
           ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -331,33 +442,39 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           if (!hit) return;
           const from = camera.position.clone();
           const to = hit.point.clone();
-          const dist = from.distanceTo(to);
-          const dur = Math.max(900, Math.min(7000, (dist / 70) * 1000));
+          const dist = Math.hypot(to.x - from.x, to.z - from.z);
+          const dur = Math.max(1200, Math.min(9000, (dist / 90) * 1000));
           const yaw = Math.atan2(-(to.x - from.x), -(to.z - from.z)) * 180 / Math.PI;
-          walkRef.current = { from, to, start: performance.now(), dur, yaw };
+          walkRef.current = { from, to, start: performance.now(), dur, yaw, yawFrom: stateRef.current.yaw };
           stateRef.current.auto = false;
           setAuto(false);
           setWalking(true);
         };
         const wheel = (e) => {
           e.preventDefault();
-          stateRef.current.fov = Math.max(35, Math.min(95, stateRef.current.fov + e.deltaY * 0.02));
-          camera.fov = stateRef.current.fov;
-          camera.updateProjectionMatrix();
+          setFov(stateRef.current.fov + e.deltaY * 0.03);
         };
         renderer.domElement.addEventListener('pointerdown', down);
         window.addEventListener('pointermove', move);
         window.addEventListener('pointerup', up);
+        window.addEventListener('pointercancel', up);
         renderer.domElement.addEventListener('wheel', wheel, { passive: false });
 
+        const view = { yaw: stateRef.current.yaw, pitch: stateRef.current.pitch };
         let last = performance.now();
         let sunTimer = 1;
         const refreshSun = () => {
           const sv = sunVector(mountain.lat, mountain.lon);
           sun.position.copy(sv).multiplyScalar(worldWidth * 0.8);
           sun.intensity = Math.max(0.08, Math.min(1.8, sv.y * 1.7 + 0.12));
-          ambient.intensity = 0.35 + Math.max(0, sv.y) * 0.95;
+          ambient.intensity = 0.6 + Math.max(0, sv.y) * 1.1;
           water.material.uniforms.sunDirection.value.copy(sv);
+          // Keep the sky readable at night: never drop the sun far below the horizon.
+          const skySun = sv.clone();
+          if (skySun.y < 0.05) skySun.y = 0.05;
+          skyU.sunPosition.value.copy(skySun.normalize());
+          renderer.toneMappingExposure = 0.7 + Math.max(0, sv.y) * 0.2;
+          scene.fog.color.setHSL(0.57, 0.35, 0.55 + Math.max(0, Math.min(1, sv.y)) * 0.25);
         };
         refreshSun();
         const loop = (now) => {
@@ -365,6 +482,12 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           const dt = Math.min((now - last) / 1000, 0.1);
           last = now;
           if (stateRef.current.auto) stateRef.current.yaw += dt * 8;
+          if (!dragging && (Math.abs(velYaw) > 0.01 || Math.abs(velPitch) > 0.01)) {
+            stateRef.current.yaw += velYaw * dt;
+            stateRef.current.pitch = Math.max(-80, Math.min(80, stateRef.current.pitch + velPitch * dt));
+            const decay = Math.exp(-dt * 5);
+            velYaw *= decay; velPitch *= decay;
+          }
           sunTimer += dt;
           if (sunTimer >= 1) { sunTimer = 0; refreshSun(); }
           water.material.uniforms.time.value += dt * 0.35;
@@ -375,22 +498,28 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
             const eased = p * p * (3 - 2 * p);
             camera.position.x = walk.from.x + (walk.to.x - walk.from.x) * eased;
             camera.position.z = walk.from.z + (walk.to.z - walk.from.z) * eased;
-            const ground = sampleHeight(heights, SIZE / 2 + camera.position.x / mPerPixel, SIZE / 2 - camera.position.z / mPerPixel);
-            camera.position.y = ground * EXAGGERATION + EYE_HEIGHT;
-            stateRef.current.yaw = walk.yaw;
+            let dYaw = ((walk.yaw - walk.yawFrom) % 360 + 540) % 360 - 180;
+            stateRef.current.yaw = walk.yawFrom + dYaw * Math.min(1, p * 3);
             if (p >= 1) { walkRef.current = null; setWalking(false); }
           }
 
-          camera.up.set(0, 1, 0);
-          camera.rotation.set(
-            -stateRef.current.pitch * Math.PI / 180,
-            stateRef.current.yaw * Math.PI / 180,
-            0,
-            'YXZ',
-          );
+          // Keep the eye above the ground (smoothed so slopes don't jitter).
+          const targetY = groundAt(camera.position.x, camera.position.z) * EXAGGERATION + EYE_HEIGHT;
+          camera.position.y += (targetY - camera.position.y) * Math.min(1, dt * 10);
+          if (camera.position.y < targetY - 1) camera.position.y = targetY - 1;
+
+          // Ease view angles and zoom toward their targets for smooth motion.
+          const ease = 1 - Math.exp(-dt * 14);
+          view.yaw += (stateRef.current.yaw - view.yaw) * ease;
+          view.pitch += (stateRef.current.pitch - view.pitch) * ease;
+          if (Math.abs(stateRef.current.fov - camera.fov) > 0.01) {
+            camera.fov += (stateRef.current.fov - camera.fov) * ease;
+            camera.updateProjectionMatrix();
+          }
+          camera.rotation.set(-view.pitch * Math.PI / 180, view.yaw * Math.PI / 180, 0, 'YXZ');
           renderer.render(scene, camera);
 
-          const groundRound = Math.round(camera.position.y / EXAGGERATION - EYE_HEIGHT);
+          const groundRound = Math.round(groundAt(camera.position.x, camera.position.z) + elevOffset);
           if (Math.abs(groundRound - lastLevel) > 20) { lastLevel = groundRound; setLevelLine(groundRound); }
           if (elevationRef.current) elevationRef.current.textContent = `${groundRound.toLocaleString()} m`;
 
@@ -406,7 +535,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
             el.style.transform = `translate(-50%, -50%) translate(${(projected.x * 0.5 + 0.5) * vw}px, ${(-projected.y * 0.5 + 0.5) * vh}px)`;
           });
 
-          const h = Math.round(((stateRef.current.yaw % 360) + 360) % 360);
+          const h = Math.round(((view.yaw % 360) + 360) % 360);
           if (headingRef.current) headingRef.current.textContent = `${headingLabel(h)} · ${h}°`;
           if (compassRef.current) compassRef.current.style.transform = `rotate(${-h}deg)`;
           frame = requestAnimationFrame(loop);
@@ -418,6 +547,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           window.removeEventListener('resize', resize);
           window.removeEventListener('pointermove', move);
           window.removeEventListener('pointerup', up);
+          window.removeEventListener('pointercancel', up);
           renderer.domElement.removeEventListener('pointerdown', down);
           renderer.domElement.removeEventListener('wheel', wheel);
           cancelAnimationFrame(frame);
@@ -427,6 +557,8 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           if (levelLine) { levelLine.geometry.dispose(); levelLine.material.dispose(); }
           water.geometry.dispose();
           water.material.dispose();
+          sky.geometry.dispose();
+          sky.material.dispose();
           normals.dispose();
           geometry.dispose();
           material.dispose();
@@ -450,8 +582,8 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
   };
   const reset = () => {
     stateRef.current.yaw = 0;
-    stateRef.current.pitch = -3;
-    stateRef.current.fov = 74;
+    stateRef.current.pitch = -6;
+    stateRef.current.fov = 70;
   };
 
   return (
