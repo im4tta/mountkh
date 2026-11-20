@@ -1,154 +1,130 @@
-import { X, Mountain, Heart, Map, Info, Users, Smartphone, Download } from 'lucide-react';
-import { FCODE_META, COUNTRY_META } from '../lib/utils';
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { X, Info, Users, Smartphone, Download, Map as MapIcon, Globe2 } from 'lucide-react';
+import { COUNTRY_META } from '../lib/utils';
+import MountainGlyph from './MountainGlyph';
 
-export default function Sidebar({ open, onClose, total, highest, withElev, t, lang, gmapsKey, onSaveKey }) {
-  const [inputKey, setInputKey] = useState(gmapsKey || '');
-  const [keyStatus, setKeyStatus] = useState('');
+function Section({ title, children }) {
+  return (
+    <section className="border-t border-[var(--rule)] pt-5">
+      <h3 className="eyebrow mb-3">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+export default function Sidebar({
+  open, onClose, total, highest, withElev, favoritesCount,
+  t, lang, provider, onProviderChange, homeSkin, onHomeSkin,
+}) {
   const [installVisible, setInstallVisible] = useState(false);
+  const deferredPrompt = useRef(null);
+  const isKh = lang === 'km';
 
   useEffect(() => {
-    setInputKey(gmapsKey || '');
-  }, [gmapsKey]);
-
-  useEffect(() => {
-    let deferredPrompt;
-    const handler = (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      setInstallVisible(true);
-    };
+    const handler = (e) => { e.preventDefault(); deferredPrompt.current = e; setInstallVisible(true); };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  const handleSaveKey = () => {
-    const key = inputKey.trim();
-    if (!key) {
-      setKeyStatus(t('gmapsKeyStatusEmpty'));
-      return;
-    }
-    onSaveKey(key);
-    setKeyStatus(t('gmapsKeyStatusSaved'));
-  };
-
   const handleInstall = async () => {
-    // deferredPrompt would need to be stored in a ref/state outside; simplified here
+    const prompt = deferredPrompt.current;
+    if (!prompt) return;
+    prompt.prompt();
+    await prompt.userChoice;
+    deferredPrompt.current = null;
+    setInstallVisible(false);
   };
-
-  const isKh = lang === 'km';
 
   return (
     <>
-      {open && (
-        <div className="fixed inset-0 z-[1000] bg-black/40" onClick={onClose} />
-      )}
-      <aside className={`fixed top-0 left-0 h-full w-80 max-w-[85vw] z-[1001] bg-[var(--bg-elevated)] border-r border-[var(--border)] shadow-2xl transform transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
-          <h2 className="text-lg font-bold flex items-center gap-2">
-            <Mountain className="w-5 h-5 text-[var(--accent)]" />
-            MountKH
-          </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border)] text-[var(--text-secondary)]">
-            <X className="w-5 h-5" />
-          </button>
+      {open && <div className="fixed inset-0 z-[1000] bg-[#1d2a23]/50 backdrop-blur-[2px] animate-pop-in" onClick={onClose} />}
+      <aside className={`fixed inset-y-0 left-0 z-[1001] flex w-[350px] max-w-[88vw] flex-col border-r border-[var(--rule)] bg-[var(--card)] shadow-[var(--shadow-lift)] transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--rule)] px-5 py-4">
+          <div className="flex items-center gap-2.5">
+            <MountainGlyph className="h-6 w-6 text-[var(--forest)]" />
+            <div className="serif text-lg font-bold leading-none">Mount<span className="text-[var(--rust)]">KH</span></div>
+          </div>
+          <button onClick={onClose} className="icon-btn" aria-label={t('close')}><X className="h-4 w-4" /></button>
         </div>
-        <div className="p-4 overflow-y-auto h-[calc(100%-3.5rem)] space-y-6 text-sm">
-          <p className="text-[var(--text-secondary)]">Discover <strong className="text-[var(--text)]">{total}</strong> mountain features across Cambodia & border regions.</p>
 
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl border border-[var(--border)] p-2.5 text-center bg-[var(--bg)]">
-              <div className="text-lg font-bold text-[var(--accent)]">{highest}</div>
-              <div className="text-[10px] text-[var(--text-secondary)] leading-tight">{t('statHighest')}</div>
-            </div>
-            <div className="rounded-xl border border-[var(--border)] p-2.5 text-center bg-[var(--bg)]">
-              <div className="text-lg font-bold text-[var(--accent)]">{total}</div>
-              <div className="text-[10px] text-[var(--text-secondary)] leading-tight">{t('statTotal')}</div>
-            </div>
-            <div className="rounded-xl border border-[var(--border)] p-2.5 text-center bg-[var(--bg)]">
-              <div className="text-lg font-bold text-[var(--accent)]">{withElev}</div>
-              <div className="text-[10px] text-[var(--text-secondary)] leading-tight">{t('statWithElev')}</div>
-            </div>
+        <div className="scroll-area flex-1 space-y-5 px-5 py-6">
+          <div>
+            <p className="eyebrow">{t('tagline')}</p>
+            <h2 className="serif mt-2 text-2xl font-bold leading-tight">{t('aboutTitle')}</h2>
+            <p className="mt-2 text-[12px] leading-relaxed text-[var(--ink-soft)]">{t('aboutBody')}</p>
           </div>
 
-          <hr className="border-[var(--border)]" />
-
-          <div>
-            <h3 className="font-semibold mb-2 flex items-center gap-2"><Mountain className="w-4 h-4" /> {t('sidebarLegend')}</h3>
-            <ul className="space-y-1.5">
-              {Object.entries(FCODE_META).map(([k, v]) => (
-                <li key={k} className="flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--bg)] border border-[var(--border)]">{k}</span>
-                  <span className="text-[var(--text-secondary)]">{isKh ? v.labelKm : v.label}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <hr className="border-[var(--border)]" />
-
-          <div>
-            <h3 className="font-semibold mb-2 flex items-center gap-2"><Heart className="w-4 h-4" /> {t('sidebarBadges')}</h3>
-            <ul className="space-y-1.5">
-              {Object.entries(COUNTRY_META).map(([k, v]) => (
-                <li key={k} className="flex items-center gap-2">
-                  <span className="inline-block px-1.5 py-0.5 rounded text-xs bg-[var(--bg)] border border-[var(--border)]">{v.short}</span>
-                  <span className="text-[var(--text-secondary)]">{isKh ? v.labelKm : v.label}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <hr className="border-[var(--border)]" />
-
-          <div>
-            <h3 className="font-semibold mb-2 flex items-center gap-2"><Map className="w-4 h-4" /> {t('sidebarMaps')}</h3>
-            <p className="text-[var(--text-secondary)] mb-2">Toggle between <strong>OpenStreetMap</strong> (no API key) and <strong>Google Maps</strong> (requires key).</p>
-            <div className="space-y-2">
-              <p className="text-xs text-[var(--text-secondary)]">{t('gmapsKeyLabel')}</p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={inputKey}
-                  onChange={(e) => setInputKey(e.target.value)}
-                  placeholder="AIza…"
-                  className="flex-1 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-xs focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                />
-                <button onClick={handleSaveKey} className="px-3 py-1.5 rounded-lg bg-[var(--accent)] text-white text-xs font-medium hover:opacity-90">
-                  {t('gmapsKeySave')}
-                </button>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 border-y border-[var(--rule)] py-5">
+            {[
+              [total.toLocaleString(), t('statTotal')],
+              [highest.toLocaleString(), t('statHighest')],
+              [withElev.toLocaleString(), t('statWithElev')],
+              [favoritesCount.toLocaleString(), t('favorites')],
+            ].map(([value, label]) => (
+              <div key={label}>
+                <div className="serif text-2xl font-bold leading-none text-[var(--forest)]">{value}</div>
+                <div className="mt-1 text-[9px] uppercase tracking-[0.12em] text-[var(--muted)]">{label}</div>
               </div>
-              {keyStatus && <p className="text-xs text-[var(--text-secondary)]">{keyStatus}</p>}
+            ))}
+          </div>
+
+          <Section title={t('homeStyle')}>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['atlas', t('homeAtlas'), '🗺'],
+                ['explorer', t('homeExplorer'), '⛰'],
+              ].map(([key, label, emoji]) => (
+                <button key={key} onClick={() => onHomeSkin(key)}
+                  className={`rounded-xl border px-2 py-3 text-center transition-colors ${homeSkin === key
+                    ? 'border-[var(--forest)] bg-[var(--forest-soft)] text-[var(--ink)]'
+                    : 'border-[var(--rule)] text-[var(--muted)] hover:text-[var(--ink)]'}`}>
+                  <span className="block text-lg">{emoji}</span>
+                  <span className="mt-1 block text-[10px] font-bold">{label}</span>
+                </button>
+              ))}
             </div>
-          </div>
+          </Section>
 
-          <hr className="border-[var(--border)]" />
+          <Section title={t('sidebarMaps')}>
+            <div className="mb-3 flex gap-4">
+              {['google', 'osm'].map((key) => (
+                <button key={key} onClick={() => onProviderChange(key)} className={`border-b-2 pb-1 text-[11px] font-semibold uppercase tracking-wide ${provider === key ? 'border-[var(--rust)] text-[var(--ink)]' : 'border-transparent text-[var(--muted)]'}`}>
+                  {key === 'google' ? t('googleMaps') : t('osm')}
+                </button>
+              ))}
+            </div>
+            <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-[var(--muted)]">
+              <MapIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--forest)]" />
+              {t('tilesNoKey')}
+            </p>
+          </Section>
 
-          <div>
-            <h3 className="font-semibold mb-2 flex items-center gap-2"><Info className="w-4 h-4" /> {t('sidebarData')}</h3>
-            <p className="text-[var(--text-secondary)]">{t('dataWarning')}</p>
-          </div>
+          <Section title={t('sidebarBadges')}>
+            <div className="space-y-2">
+              {Object.entries(COUNTRY_META).map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between text-[11px]">
+                  <span className="text-[var(--ink-soft)]">{v.flag} {isKh ? v.labelKm : v.label}</span>
+                  <span className="font-mono text-[9px] text-[var(--muted)]">{v.short}</span>
+                </div>
+              ))}
+            </div>
+          </Section>
 
-          <hr className="border-[var(--border)]" />
+          <Section title={t('sidebarData')}>
+            <p className="text-[11px] leading-relaxed text-[var(--muted)]">{t('dataWarning')}</p>
+            <a href="https://www.geonames.org" target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-[11px] font-semibold text-[var(--forest)] underline underline-offset-2">{t('geoNames')} ↗</a>
+          </Section>
 
-          <div>
-            <h3 className="font-semibold mb-2 flex items-center gap-2"><Users className="w-4 h-4" /> {t('sidebarContribute')}</h3>
-            <p className="text-[var(--text-secondary)]">{t('contributeText')}</p>
-          </div>
+          <Section title={t('sidebarContribute')}>
+            <p className="text-[11px] leading-relaxed text-[var(--muted)]">{t('contributeText')}</p>
+          </Section>
 
-          <hr className="border-[var(--border)]" />
+          <Section title={t('sidebarApp')}>
+            <p className="text-[11px] leading-relaxed text-[var(--muted)]">{t('installPrompt')}</p>
+            {installVisible && <button onClick={handleInstall} className="btn mt-3 w-full"><Download className="h-4 w-4" /> {t('install')}</button>}
+          </Section>
 
-          <div>
-            <h3 className="font-semibold mb-2 flex items-center gap-2"><Smartphone className="w-4 h-4" /> {t('sidebarApp')}</h3>
-            <p className="text-[var(--text-secondary)] mb-2">{t('installPrompt')}</p>
-            {installVisible && (
-              <button className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-sm hover:bg-[var(--border)]">
-                <Download className="w-4 h-4" /> {t('install')}
-              </button>
-            )}
-          </div>
-
-          <p className="text-xs text-[var(--text-secondary)] pt-2">Data: <a href="https://www.geonames.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--accent)]">GeoNames</a> (CC BY 4.0)</p>
+          <p className="pt-2 text-center text-[9px] uppercase tracking-[0.12em] text-[var(--muted)]">MountKH · v3.0 · CC BY 4.0</p>
         </div>
       </aside>
     </>

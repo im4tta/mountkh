@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Concept 03 — Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700&family=Noto+Serif+Khmer:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#fbf8f1;--ink:#1a2a22;--forest:#255743;--rust:#c1522c;--ochre:#c99a3c;--rule:#ddd6c6;--muted:#7b8478}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:"Noto Sans Khmer",system-ui,sans-serif}
+.serif{font-family:"Fraunces","Noto Serif Khmer",Georgia,serif}
+.masthead{padding:22px 5vw 16px;border-bottom:3px double var(--ink);display:flex;align-items:center;gap:24px}
+.masthead .logo{font:700 27px "Fraunces",serif;letter-spacing:-.02em}.masthead .logo b{color:var(--rust)}
+.masthead .meta{margin-left:auto;font-size:9px;letter-spacing:.18em;text-transform:uppercase;text-align:right;line-height:1.7;color:var(--muted)}
+.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:5vw;padding:60px 5vw 50px;align-items:center}
+.kicker{font-size:10px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--rust)}
+h1{font:600 clamp(52px,6.4vw,92px)/.95 "Fraunces","Noto Serif Khmer",serif;letter-spacing:-.04em;margin:18px 0 22px}
+h1 em{font-style:italic;color:var(--forest)}
+.lead{font-size:15px;line-height:1.8;max-width:500px;color:#45564b}
+.byline{margin-top:26px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;border-top:1px solid var(--ink);padding-top:12px;max-width:500px}
+.art{position:relative;height:420px;border:1px solid var(--ink);background:linear-gradient(160deg,#dfe9dd,#b9cfba 55%,#7fa18b);overflow:hidden}
+.art svg{width:100%;height:100%}.art .stamp{position:absolute;right:18px;top:18px;width:74px;height:74px;border:2px solid var(--rust);border-radius:50%;display:grid;place-items:center;text-align:center;font-size:8px;letter-spacing:.1em;color:var(--rust);transform:rotate(12deg);background:rgba(251,248,241,.8)}
+.art .cap{position:absolute;bottom:0;left:0;right:0;background:rgba(26,42,34,.88);color:#f4efe4;padding:9px 14px;font-size:10px;letter-spacing:.08em}
+.ticker{border-block:1px solid var(--ink);padding:13px 5vw;display:flex;justify-content:space-between;font-size:10px;letter-spacing:.16em;text-transform:uppercase}
+.ticker b{font:600 16px "Fraunces",serif;letter-spacing:0;text-transform:none}
+.section{padding:56px 5vw}
+.section h2{font:600 38px "Fraunces",serif;margin:6px 0 26px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.story{border-top:2px solid var(--ink);padding-top:14px;cursor:pointer}
+.story .thumb{height:150px;margin:12px 0;background:linear-gradient(150deg,#d7e3d5,#9db99f)}
+.story:nth-child(2) .thumb{background:linear-gradient(150deg,#efdcc4,#d2a46f)}
+.story:nth-child(3) .thumb{background:linear-gradient(150deg,#dce5e8,#92b2bd)}
+.story h3{font:600 21px "Fraunces",serif;margin:0 0 6px}
+.story p{font-size:11px;line-height:1.6;color:var(--muted)}
+.story .no{font:600 12px "Fraunces",serif;color:var(--rust)}
+.quote{margin:10px 5vw 60px;padding:40px 5vw;background:var(--ink);color:#f4efe4;display:flex;gap:40px;align-items:center}
+.quote blockquote{font:400 30px/1.35 "Fraunces",serif;font-style:italic;max-width:720px}
+.quote .mark{font:700 70px "Fraunces",serif;color:var(--ochre)}
+@media(max-width:900px){.hero{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.quote{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="masthead"><div class="logo">Mount<b>KH</b></div><div class="meta">Field notes · Issue no. 01<br>ភ្នំកម្ពុជា · Cambodia</div></div>
+<div class="hero">
+  <div>
+    <div class="kicker">The highland dispatch</div>
+    <h1>Notes from<br>the <em>highlands.</em></h1>
+    <p class="lead">An illustrated notebook of Cambodia's mountains — where the Cardamoms meet the Dângrêk, and every ridge carries a name worth knowing.</p>
+    <div class="byline">Words & maps · MountKH atlas team · 1,605 features surveyed</div>
+  </div>
+  <div class="art">
+    <svg viewBox="0 0 500 420" preserveAspectRatio="none"><path d="M0 420L0 300L90 180L160 260L250 90L340 250L420 160L500 270V420Z" fill="#5c8269" opacity=".7"/><path d="M0 420L0 340L120 250L220 330L320 210L420 320L500 260V420Z" fill="#335842" opacity=".8"/><path d="M250 90l22 34-22-12-20 14z" fill="#f4efe4" opacity=".85"/></svg>
+    <div class="stamp">FIELD<br>VERIFIED</div>
+    <div class="cap">PLATE I — THE CARDAMOM RIDGE, 12°02′N</div>
+  </div>
+</div>
+<div class="ticker"><span>01 / Highest summit <b>1,813 m</b></span><span>Provinces <b>25</b></span><span>Features mapped <b>1,605</b></span></div>
+<div class="section">
+  <div class="kicker">From the notebook</div><h2>Stories in the landscape</h2>
+  <div class="grid">
+    <article class="story"><div class="no">01 — SUMMIT</div><div class="thumb"></div><h3>The king of Cambodian peaks</h3><p>Phnum Aôral rises 1,813 metres above Kampong Speu — a quiet giant in the eastern Cardamoms.</p></article>
+    <article class="story"><div class="no">02 — RIDGE</div><div class="thumb"></div><h3>Walking the Dângrêk edge</h3><p>Along the northern border, passes and plateaus trace a line between two countries.</p></article>
+    <article class="story"><div class="no">03 — ISLAND</div><div class="thumb"></div><h3>Where the sea meets stone</h3><p>Koh Kong's islands are hills drowned by the sea — elevations still recorded in the atlas.</p></article>
+  </div>
+</div>
+<div class="quote"><div class="mark">“</div><blockquote>A mountain is not just a height. It is a name, a place, and a story told by the people who live beside it.</blockquote></div>
+</body>
+</html>

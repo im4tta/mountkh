@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { I18N } from './lib/i18n';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { normalizeName, getMountainNames, findNameMatch, haversine } from './lib/utils';
+import { elevationOf } from './lib/utils';
 import Header from './components/Header';
+import FilterPanel from './components/FilterPanel';
 import ListView from './components/ListView';
 import MapView from './components/MapView';
 import DetailPanel from './components/DetailPanel';
@@ -12,33 +13,18 @@ import Toast from './components/Toast';
 import Splash from './components/Splash';
 
 function useTheme() {
-  const [theme, setTheme] = useLocalStorage('mountkh_theme', '');
+  const [theme, setTheme] = useLocalStorage('mountkh_theme', 'light');
   useEffect(() => {
-    const root = document.documentElement;
-    const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
-    const apply = (t) => {
-      if (t === 'dark' || (!t && systemDark.matches)) {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
-    };
-    apply(theme);
-    const listener = (e) => { if (!theme) apply(e.matches ? 'dark' : 'light'); };
-    systemDark.addEventListener('change', listener);
-    return () => systemDark.removeEventListener('change', listener);
+    document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
-  const toggle = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  return [theme || 'light', toggle];
+  const toggle = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  return [theme === 'dark' ? 'dark' : 'light', toggle];
 }
 
 export default function App() {
   const [theme, toggleTheme] = useTheme();
   const [lang, setLang] = useLocalStorage('mountkh_lang', 'km');
   const [favorites, setFavorites] = useLocalStorage('mountkh_favs', []);
-  const [gmapsKey, setGmapsKey] = useLocalStorage('mountkh_gmaps_key', '');
-  const [gmapsReady, setGmapsReady] = useState(false);
-
   const [mountainsRaw, setMountainsRaw] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,223 +33,208 @@ export default function App() {
   const [fcode, setFcode] = useState('');
   const [country, setCountry] = useState('');
   const [province, setProvince] = useState('');
-  const [sort, setSort] = useState('name');
+  const [elevBand, setElevBand] = useState('');
+  const [sort, setSort] = useState('elev-desc');
   const [favFilter, setFavFilter] = useState(false);
 
   const [view, setView] = useState('list');
-  const [layout, setLayout] = useLocalStorage('mountkh_layout', 'grid');
-  const [provider, setProvider] = useState('osm');
+  const [provider, setProvider] = useState('google');
+  const [homeSkin, setHomeSkin] = useLocalStorage('mountkh_home', 'atlas');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [detailMountain, setDetailMountain] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [mapFocus, setMapFocus] = useState(null);
   const [toast, setToast] = useState('');
 
-  const t = useCallback((key) => {
-    return I18N[lang]?.[key] ?? key;
-  }, [lang]);
+  const t = useCallback((key) => I18N[lang]?.[key] ?? I18N.en[key] ?? key, [lang]);
 
-  // Load data
   useEffect(() => {
     let cancelled = false;
     fetch('/mountains-kh.json')
-      .then(r => r.json())
-      .then(data => {
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((data) => {
         if (cancelled) return;
-        const processed = data.map(m => ({
-          ...m,
-          _name: m.name || m.ascii || '',
-          elev: m.elev || null,
-          dem: m.dem || null,
-        }));
-        setMountainsRaw(processed);
+        setMountainsRaw(data.map((m) => ({ ...m, _name: m.name || m.ascii || '' })));
         setLoading(false);
       })
-      .catch(err => {
-        console.error('Failed to load data:', err);
-        if (!cancelled) setLoading(false);
-      });
+      .catch((err) => { console.error(err); if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
-  // Filtered mountains
   const filtered = useMemo(() => {
-    let res = [...mountainsRaw];
+    let res = mountainsRaw.slice();
     const q = search.trim().toLowerCase();
-    if (q) {
-      res = res.filter(m =>
-        m._name.toLowerCase().includes(q) ||
-        (m.ascii && m.ascii.toLowerCase().includes(q)) ||
-        (m.alt && m.alt.toLowerCase().includes(q))
-      );
-    }
-    if (fcode) res = res.filter(m => m.fcode === fcode);
-    if (country) res = res.filter(m => m.country === country);
-    if (province) res = res.filter(m => m.province === province);
-    if (activeTab === 'mountain') res = res.filter(m => m.fcode === 'MT');
-    else if (activeTab === 'hill') res = res.filter(m => m.fcode === 'HLL');
-    else if (activeTab === 'peak') res = res.filter(m => m.fcode === 'PK');
-    else if (activeTab === 'favorites') res = res.filter(m => favorites.includes(String(m.id)));
-    else if (activeTab === 'elevation') res = res.filter(m => (m.elev || m.dem) > 0);
-    if (favFilter) res = res.filter(m => favorites.includes(String(m.id)));
+    if (q) res = res.filter((m) => m._name.toLowerCase().includes(q) || m.ascii?.toLowerCase().includes(q) || m.alt?.toLowerCase().includes(q));
+    if (fcode) res = res.filter((m) => m.fcode === fcode);
+    if (country) res = res.filter((m) => m.country === country);
+    if (province) res = res.filter((m) => m.province === province);
+    if (favFilter) res = res.filter((m) => favorites.includes(String(m.id)));
+    if (activeTab === 'mountain') res = res.filter((m) => m.fcode === 'MT');
+    else if (activeTab === 'hill') res = res.filter((m) => m.fcode === 'HLL' || m.fcode === 'HLLS');
+    else if (activeTab === 'peak') res = res.filter((m) => m.fcode === 'PK');
+    else if (activeTab === 'favorites') res = res.filter((m) => favorites.includes(String(m.id)));
+    else if (activeTab === 'elevation') res = res.filter((m) => (elevationOf(m) || 0) > 0);
+    else if (activeTab === 'high') res = res.filter((m) => (elevationOf(m) || 0) >= 1000);
+    if (elevBand === 'low') res = res.filter((m) => { const e = elevationOf(m); return e > 0 && e < 300; });
+    else if (elevBand === 'mid') res = res.filter((m) => { const e = elevationOf(m); return e >= 300 && e < 1000; });
+    else if (elevBand === 'high') res = res.filter((m) => (elevationOf(m) || 0) >= 1000);
 
-    if (sort === 'name') res.sort((a, b) => a._name.localeCompare(b._name));
-    else if (sort === 'elev-desc') res.sort((a, b) => (b.elev || 0) - (a.elev || 0));
-    else if (sort === 'elev-asc') res.sort((a, b) => (a.elev || 99999) - (b.elev || 99999));
-
+    if (sort === 'elev-desc') res.sort((a, b) => (elevationOf(b) || 0) - (elevationOf(a) || 0));
+    else if (sort === 'elev-asc') res.sort((a, b) => (elevationOf(a) ?? Infinity) - (elevationOf(b) ?? Infinity));
+    else res.sort((a, b) => a._name.localeCompare(b._name));
     return res;
-  }, [mountainsRaw, search, fcode, country, province, activeTab, favorites, favFilter, sort]);
+  }, [mountainsRaw, search, fcode, country, province, favFilter, activeTab, elevBand, sort, favorites]);
 
-  const provinces = useMemo(() => {
-    return [...new Set(mountainsRaw.map(m => m.province).filter(Boolean))].sort();
-  }, [mountainsRaw]);
+  const featured = useMemo(
+    () => mountainsRaw.slice().sort((a, b) => (elevationOf(b) || 0) - (elevationOf(a) || 0)).slice(0, 4),
+    [mountainsRaw]
+  );
+  const provinces = useMemo(() => [...new Set(mountainsRaw.map((m) => m.province).filter(Boolean))].sort(), [mountainsRaw]);
+  const highest = useMemo(() => mountainsRaw.reduce((max, m) => Math.max(max, elevationOf(m) || 0), 0), [mountainsRaw]);
+  const withElevCount = useMemo(() => mountainsRaw.filter((m) => (elevationOf(m) || 0) > 0).length, [mountainsRaw]);
 
-  const highest = useMemo(() => {
-    return mountainsRaw.reduce((max, m) => Math.max(max, m.elev || 0), 0);
-  }, [mountainsRaw]);
+  const filterCount = [search.trim(), fcode, country, province, elevBand, favFilter ? 'f' : '', activeTab !== 'all' ? 't' : ''].filter(Boolean).length;
+  const showIntro = filterCount === 0 && sort !== 'name';
 
-  const withElevCount = useMemo(() => {
-    return mountainsRaw.filter(m => (m.elev || m.dem) > 0).length;
-  }, [mountainsRaw]);
-
-  const isFav = useCallback((id) => favorites.includes(String(id)), [favorites]);
+  const clearFilters = useCallback(() => {
+    setSearch(''); setFcode(''); setCountry(''); setProvince(''); setElevBand(''); setFavFilter(false); setActiveTab('all');
+  }, []);
 
   const toggleFav = useCallback((id) => {
-    setFavorites(prev => {
-      const s = String(id);
-      if (prev.includes(s)) return prev.filter(x => x !== s);
-      return [...prev, s];
+    setFavorites((prev) => {
+      const key = String(id);
+      return prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key];
     });
   }, [setFavorites]);
+
+  const showToast = useCallback((msg) => setToast(msg), []);
+
+  const goHome = useCallback(() => {
+    clearFilters();
+    setSort('elev-desc');
+    setView('list');
+    setDetailOpen(false);
+    setDetailMountain(null);
+    setSidebarOpen(false);
+    setFiltersOpen(false);
+    setMapFocus(null);
+    try { history.replaceState(null, '', `${location.pathname}${location.search}`); } catch { /* ignore */ }
+  }, [clearFilters]);
 
   const showDetail = useCallback((m) => {
     setDetailMountain(m);
     setDetailOpen(true);
+    try { history.replaceState(null, '', `${location.pathname}${location.search}#m/${m.id}`); } catch { /* ignore */ }
   }, []);
 
   const hideDetail = useCallback(() => {
     setDetailOpen(false);
+    try { history.replaceState(null, '', `${location.pathname}${location.search}`); } catch { /* ignore */ }
   }, []);
 
-  const showToast = useCallback((msg) => {
-    setToast(msg);
+  const showOnMap = useCallback((m) => {
+    setDetailOpen(false);
+    setView('map');
+    setMapFocus({ lat: m.lat, lon: m.lon, id: m.id, at: Date.now() });
   }, []);
 
-  // Keyboard shortcuts
+  const shuffle = useCallback(() => {
+    const pool = filtered.length ? filtered : mountainsRaw;
+    if (pool.length) showDetail(pool[Math.floor(Math.random() * pool.length)]);
+  }, [filtered, mountainsRaw, showDetail]);
+
   useEffect(() => {
-    const handler = (e) => {
-      if (e.key === 'Escape') {
-        hideDetail();
-        setSidebarOpen(false);
-      }
+    if (!mountainsRaw.length) return;
+    const openFromHash = () => {
+      const match = location.hash.match(/^#m\/(\d+)$/);
+      if (!match) return;
+      const m = mountainsRaw.find((item) => String(item.id) === match[1]);
+      if (m) { setDetailMountain(m); setDetailOpen(true); }
     };
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+    return () => window.removeEventListener('hashchange', openFromHash);
+  }, [mountainsRaw]);
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') { hideDetail(); setSidebarOpen(false); setFiltersOpen(false); } };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [hideDetail]);
 
-  // Google Maps init callback
-  const handleGmapsInit = useCallback(() => {
-    setGmapsReady(true);
-  }, []);
-
-  // PWA service worker
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
+    if (!('serviceWorker' in navigator)) return;
+    if (import.meta.env.PROD) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
+    } else {
+      navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister())).catch(() => {});
     }
   }, []);
-
-  // Language HTML attribute
-  useEffect(() => {
-    document.documentElement.lang = lang;
-  }, [lang]);
+  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
   return (
-    <div className="h-full flex flex-col bg-[var(--bg)]">
+    <div className="flex h-full flex-col bg-[var(--paper)]">
       {loading && <Splash visible={loading} />}
 
       <Header
-        search={search}
-        onSearch={setSearch}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        fcode={fcode}
-        onFcodeChange={setFcode}
-        country={country}
-        onCountryChange={setCountry}
-        province={province}
-        onProvinceChange={setProvince}
-        sort={sort}
-        onSortChange={setSort}
-        favFilter={favFilter}
-        onFavFilterChange={setFavFilter}
-        view={view}
-        onToggleView={() => setView(v => v === 'list' ? 'map' : 'list')}
-        layout={layout}
-        onToggleLayout={() => setLayout(l => l === 'grid' ? 'list' : 'grid')}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        lang={lang}
-        onToggleLang={() => setLang(l => l === 'km' ? 'en' : 'km')}
-        onMenu={() => setSidebarOpen(true)}
-        provider={provider}
-        onProviderChange={setProvider}
-        provinces={provinces}
-        t={t}
+        search={search} onSearch={setSearch}
+        activeTab={activeTab} onTabChange={setActiveTab}
+        view={view} onToggleView={() => setView((v) => (v === 'list' ? 'map' : 'list'))}
+        theme={theme} onToggleTheme={toggleTheme}
+        lang={lang} onToggleLang={() => setLang((l) => (l === 'km' ? 'en' : 'km'))}
+        onMenu={() => setSidebarOpen(true)} onHome={goHome}
+        sort={sort} onSortChange={setSort}
+        filtersOpen={filtersOpen} onToggleFilters={() => setFiltersOpen((v) => !v)}
+        filterCount={filterCount} onClearFilters={clearFilters}
+        onShuffle={shuffle} t={t}
       />
 
-      <StatsBar
-        total={mountainsRaw.length}
-        showing={filtered.length}
-        hasSearch={search.trim()}
-        provider={provider}
-        gmapsReady={gmapsReady}
-        t={t}
+      <FilterPanel
+        open={filtersOpen} t={t} lang={lang}
+        fcode={fcode} onFcodeChange={setFcode}
+        country={country} onCountryChange={setCountry}
+        province={province} onProvinceChange={setProvince} provinces={provinces}
+        sort={sort} onSortChange={setSort}
+        elevBand={elevBand} onElevBandChange={setElevBand}
+        favFilter={favFilter} onFavFilterChange={setFavFilter}
+        onClear={clearFilters} filterCount={filterCount}
       />
 
-      <main className="flex-1 overflow-hidden relative">
+      <StatsBar total={mountainsRaw.length} showing={filtered.length} search={search.trim()} provider={provider} t={t} />
+
+      <main className="relative min-h-0 flex-1">
         {view === 'list' ? (
           <ListView
-            mountains={filtered}
-            favorites={favorites}
-            onToggleFav={toggleFav}
-            onSelect={showDetail}
-            lang={lang}
-            layout={layout}
+            mountains={filtered} featured={featured} skin={homeSkin}
+            total={mountainsRaw.length} highest={highest} withElev={withElevCount}
+            favorites={favorites} onToggleFav={toggleFav} onSelect={showDetail}
+            search={search} onSearch={setSearch}
+            activeTab={activeTab} onTabChange={setActiveTab}
+            lang={lang} t={t} onClear={clearFilters}
+            onExploreMap={() => setView('map')} showIntro={showIntro}
           />
         ) : (
           <MapView
-            mountains={filtered}
-            provider={provider}
-            gmapsReady={gmapsReady}
-            gmapsKey={gmapsKey}
-            onInitGmaps={handleGmapsInit}
-            onSelect={showDetail}
-            theme={theme}
+            mountains={filtered} provider={provider} onProviderChange={setProvider}
+            onSelect={showDetail} theme={theme} focusTarget={mapFocus} t={t}
           />
         )}
       </main>
 
       <DetailPanel
-        mountain={detailMountain}
-        open={detailOpen}
-        onClose={hideDetail}
-        isFav={isFav(detailMountain?.id)}
-        onToggleFav={toggleFav}
-        t={t}
-        lang={lang}
-        theme={theme}
+        mountain={detailMountain} open={detailOpen} onClose={hideDetail}
+        isFav={detailMountain ? favorites.includes(String(detailMountain.id)) : false}
+        onToggleFav={toggleFav} t={t} lang={lang} theme={theme}
+        onShowOnMap={showOnMap} onToast={showToast}
       />
 
       <Sidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        total={mountainsRaw.length}
-        highest={highest}
-        withElev={withElevCount}
-        t={t}
-        lang={lang}
-        gmapsKey={gmapsKey}
-        onSaveKey={(key) => { setGmapsKey(key); showToast(t('gmapsKeyToast')); }}
+        open={sidebarOpen} onClose={() => setSidebarOpen(false)}
+        total={mountainsRaw.length} highest={highest} withElev={withElevCount}
+        favoritesCount={favorites.length} t={t} lang={lang}
+        homeSkin={homeSkin} onHomeSkin={setHomeSkin}
+        provider={provider} onProviderChange={setProvider}
       />
 
       <Toast message={toast} onHide={() => setToast('')} />

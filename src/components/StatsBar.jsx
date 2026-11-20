@@ -1,17 +1,16 @@
-export default function StatsBar({ total, showing, hasSearch, provider, gmapsReady, t }) {
-  const parts = [showing === total ? `${total} ${t('statsFeatures')}` : `${showing} / ${total} ${t('statsFeatures')}`];
-  if (hasSearch) parts.push(`"${hasSearch}"`);
-
-  const providerLabel = provider === 'osm'
-    ? <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">OSM</span>
-    : <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${gmapsReady ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'}`}>GMaps</span>;
-
+export default function StatsBar({ total, showing, search, provider, t }) {
   return (
-    <div className="flex items-center justify-between px-4 py-2 text-xs text-[var(--text-secondary)] border-b border-[var(--border)] bg-[var(--bg)]">
-      <span>{parts.join(' · ')}</span>
-      <span className="flex items-center gap-1">
-        {providerLabel}
-      </span>
+    <div className="relative z-20 flex shrink-0 items-center justify-between gap-3 border-b border-[var(--rule)] bg-[var(--card)] px-4 py-1.5 sm:px-6">
+      <div className="flex min-w-0 items-baseline gap-2 text-[11px] text-[var(--muted)]">
+        <span className="serif text-[13px] font-bold text-[var(--ink)]">{showing.toLocaleString()}</span>
+        <span>{t('results')}</span>
+        {showing !== total && <span className="truncate">· {total.toLocaleString()} {t('statsFeatures')}</span>}
+        {search && <span className="hidden truncate italic sm:inline">“{search}”</span>}
+      </div>
+      <div className="flex shrink-0 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[var(--forest)]" />
+        <span className="text-[var(--muted)]">{provider === 'google' ? t('googleMaps') : t('osm')}</span>
+      </div>
     </div>
   );
 }

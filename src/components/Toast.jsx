@@ -1,16 +1,19 @@
 import { useEffect } from 'react';
+import { Check } from 'lucide-react';
 
 export default function Toast({ message, onHide }) {
   useEffect(() => {
     if (!message) return;
-    const t = setTimeout(onHide, 2500);
-    return () => clearTimeout(t);
+    const timer = setTimeout(onHide, 2600);
+    return () => clearTimeout(timer);
   }, [message, onHide]);
 
   if (!message) return null;
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1002] px-4 py-2 rounded-full bg-[var(--text)] text-white text-sm shadow-lg transition-opacity duration-300">
-      {message}
+    <div className="pointer-events-none fixed bottom-5 left-1/2 z-[2001] -translate-x-1/2 animate-pop-in" role="status">
+      <div className="flex items-center gap-2 border border-[var(--rule)] bg-[var(--card)] px-4 py-2.5 text-[11px] font-semibold text-[var(--ink)] shadow-[var(--shadow-lift)]">
+        <Check className="h-3.5 w-3.5 text-[var(--forest)]" /> {message}
+      </div>
     </div>
   );
 }

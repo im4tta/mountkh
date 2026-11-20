@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Concept 04 — Night Expedition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700&family=Noto+Serif+Khmer:wght@400;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a120f;--panel:#111d18;--line:#23362c;--ink:#e8f2e9;--muted:#8ba495;--mint:#57e3a0;--amber:#f2b24c;--rust:#f08a5d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans Khmer","Space Grotesk",sans-serif}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.16;background:repeating-radial-gradient(ellipse at 80% 10%,transparent 0 28px,var(--mint) 29px 30px,transparent 31px 56px),repeating-radial-gradient(ellipse at 10% 90%,transparent 0 34px,var(--amber) 35px 36px,transparent 37px 66px)}
+.top{position:relative;display:flex;align-items:center;gap:26px;padding:20px 5vw;border-bottom:1px solid var(--line)}
+.brand{font:700 20px "Space Grotesk",sans-serif;letter-spacing:-.02em}.brand i{color:var(--mint);font-style:normal}
+.top nav{display:flex;gap:24px;margin-left:auto;font:500 11px "Space Grotesk",sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.top nav a:hover{color:var(--mint)}.live{display:flex;align-items:center;gap:8px;font:600 10px "Space Grotesk",sans-serif;letter-spacing:.12em;color:var(--mint)}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 12px var(--mint)}
+.hero{position:relative;max-width:1400px;margin:auto;padding:84px 5vw 60px;display:grid;grid-template-columns:1.1fr .9fr;gap:60px;align-items:center}
+.eyebrow{font:600 10px "Space Grotesk",sans-serif;letter-spacing:.24em;text-transform:uppercase;color:var(--mint)}
+h1{font:700 clamp(52px,6vw,90px)/.96 "Space Grotesk","Noto Serif Khmer",sans-serif;letter-spacing:-.05em;margin:20px 0}
+h1 span{color:var(--mint)}h1 em{font-style:normal;color:var(--amber)}
+.lead{color:var(--muted);line-height:1.8;font-size:14px;max-width:520px}
+.search{margin-top:34px;display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);padding:8px 8px 8px 18px;border-radius:8px;max-width:500px}
+.search input{border:0;background:none;outline:0;color:var(--ink);flex:1;font-size:13px}
+.search button{background:var(--mint);color:#05130c;border:0;border-radius:5px;padding:12px 20px;font:700 10px "Space Grotesk",sans-serif;letter-spacing:.1em;text-transform:uppercase}
+.pills{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}.pill{border:1px solid var(--line);padding:7px 12px;border-radius:20px;font:500 10px "Space Grotesk",sans-serif;color:var(--muted)}.pill.on{border-color:var(--mint);color:var(--mint)}
+.radar{position:relative;height:380px;border:1px solid var(--line);border-radius:12px;background:radial-gradient(circle at 50% 50%,rgba(87,227,160,.09),transparent 62%),var(--panel);overflow:hidden}
+.radar .ring{position:absolute;inset:12%;border:1px solid rgba(87,227,160,.18);border-radius:50%}.radar .ring:nth-child(2){inset:24%}.radar .ring:nth-child(3){inset:36%}
+.radar .cross{position:absolute;inset:0;background:linear-gradient(transparent 49.8%,rgba(87,227,160,.15) 50%,transparent 50.2%),linear-gradient(90deg,transparent 49.8%,rgba(87,227,160,.15) 50%,transparent 50.2%)}
+.dot{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 5px rgba(87,227,160,.15),0 0 18px var(--mint)}
+.dot.a{left:36%;top:34%}.dot.b{left:60%;top:52%;background:var(--amber);box-shadow:0 0 0 5px rgba(242,178,76,.16),0 0 18px var(--amber)}.dot.c{left:48%;top:68%;background:var(--rust);box-shadow:0 0 0 5px rgba(240,138,93,.16),0 0 18px var(--rust)}
+.readout{position:absolute;left:16px;bottom:16px;font:600 10px "Space Grotesk",sans-serif;letter-spacing:.1em;color:var(--muted)}
+.strip{display:grid;grid-template-columns:repeat(4,1fr);border-block:1px solid var(--line);max-width:1400px;margin:auto}
+.cell{padding:26px 5vw;border-right:1px solid var(--line)}.cell b{font:700 30px "Space Grotesk",sans-serif;display:block}.cell span{font:500 9px "Space Grotesk",sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.cell:nth-child(2) b{color:var(--mint)}.cell:nth-child(3) b{color:var(--amber)}.cell:nth-child(4) b{color:var(--rust)}
+@media(max-width:900px){.hero{grid-template-columns:1fr}.strip{grid-template-columns:1fr 1fr}.top nav{display:none}}
+</style>
+</head>
+<body>
+<div class="top"><div class="brand">MOUNT<i>KH</i></div><nav><a>Explore</a><a>Peaks</a><a>Regions</a><a>Data</a></nav><div class="live"><i></i> LIVE ATLAS</div></div>
+<div class="hero">
+  <div>
+    <div class="eyebrow">Field intelligence · Cambodia</div>
+    <h1>Read the<br><span>terrain.</span><br><em>Know the land.</em></h1>
+    <p class="lead">A precision atlas of Cambodia's high places. 1,605 named features, elevation models, and border ridges — all in one fast, quiet interface.</p>
+    <div class="search"><span style="color:var(--muted)">⌕</span><input placeholder="Search mountains, hills, peaks…"><button>Scan ↗</button></div>
+    <div class="pills"><span class="pill on">All features</span><span class="pill">Mountains</span><span class="pill">1000 m+</span><span class="pill">Favorites</span></div>
+  </div>
+  <div class="radar"><div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="cross"></div><div class="dot a"></div><div class="dot b"></div><div class="dot c"></div><div class="readout">CARDAMOM SECTOR · 12.03°N / 104.17°E</div></div>
+</div>
+<div class="strip"><div class="cell"><b>1,605</b><span>Features indexed</span></div><div class="cell"><b>1,813 m</b><span>Highest summit</span></div><div class="cell"><b>88</b><span>Verified borders</span></div><div class="cell"><b>0</b><span>API keys needed</span></div></div>
+</body>
+</html>

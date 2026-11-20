@@ -1,209 +1,179 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { MapPin } from 'lucide-react';
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import { Layers3, Compass } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
-import { FCODE_META, COUNTRY_META, elevClass, elevColor } from '../lib/utils';
+import { elevationOf, elevationTone, FCODE_META } from '../lib/utils';
+import { mountainMarkerSvg } from '../lib/iconmcp';
 
-function MapController({ center, zoom }) {
+const MAX_MARKERS = 600;
+
+const TILES = {
+  google: {
+    url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    attribution: 'Map data &copy; <a href="https://www.google.com/maps">Google</a>',
+    maxZoom: 20,
+  },
+  osm: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 18,
+  },
+};
+
+function cssColor(variable, fallback) {
+  const name = variable.startsWith('var(') ? variable.slice(4, -1) : variable;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
+function FlyController({ focusTarget }) {
   const map = useMap();
-  useEffect(() => {
-    if (center) map.setView(center, zoom);
-  }, [center, zoom, map]);
+  useEffect(() => { if (focusTarget) map.flyTo([focusTarget.lat, focusTarget.lon], 12, { duration: 1 }); }, [focusTarget, map]);
   return null;
 }
 
-function MapBounds({ items }) {
+function FitBounds({ items, focusTarget }) {
   const map = useMap();
   useEffect(() => {
-    if (items.length > 0) {
-      const group = L.featureGroup(items.map(i => L.marker([i.lat, i.lon])));
-      map.fitBounds(group.getBounds().pad(0.05), { maxZoom: 9 });
-    }
-  }, [items, map]);
+    if (focusTarget || !items.length) return;
+    const group = L.featureGroup(items.map((i) => L.circleMarker([i.lat, i.lon])));
+    map.fitBounds(group.getBounds().pad(0.08), { maxZoom: 9 });
+  }, [items, map, focusTarget]);
   return null;
 }
 
-export default function MapView({ mountains, provider, gmapsReady, gmapsKey, onInitGmaps, onSelect, theme }) {
-  const mapRef = useRef(null);
-  const [center, setCenter] = useState([12.5, 104.5]);
-  const [zoom, setZoom] = useState(7);
-  const gmapDivRef = useRef(null);
-  const gmapInstanceRef = useRef(null);
-  const gmarkersRef = useRef([]);
-  const gmapInfoRef = useRef(null);
+function markerIcon(m, selected) {
+  const color = cssColor(elevationTone(elevationOf(m)).color, '#2f5d4e');
+  return L.divIcon({
+    className: 'bg-transparent border-0',
+    html: `<div class="${selected ? 'marker-selected' : ''}">${mountainMarkerSvg(color, { size: selected ? 38 : 28, selected })}</div>`,
+    iconSize: selected ? [38, 44] : [28, 34],
+    iconAnchor: selected ? [19, 42] : [14, 32],
+    popupAnchor: [0, -30],
+  });
+}
 
-  const osmItems = provider === 'osm' ? mountains.slice(0, 500) : [];
-
-  const darkGMapStyles = [
-    { featureType: 'all', elementType: 'labels.text.fill', stylers: [{ color: '#eaeaee' }] },
-    { featureType: 'all', elementType: 'geometry', stylers: [{ color: '#16162a' }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0d1a3a' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ visibility: 'off' }] },
+function Legend({ t }) {
+  const tones = [
+    ['1000 m+', 'var(--elev-high)'],
+    ['300–1000 m', 'var(--elev-mid)'],
+    ['0–300 m', 'var(--elev-low)'],
   ];
+  return (
+    <div className="map-panel pointer-events-auto hidden p-3.5 sm:block">
+      <div className="eyebrow mb-2.5 flex items-center gap-1.5"><Layers3 className="h-3 w-3" /> {t('mapLegend')}</div>
+      <div className="space-y-1.5">
+        {tones.map(([label, color]) => (
+          <div key={label} className="flex items-center gap-2 text-[11px] text-[var(--ink-soft)]">
+            <span className="h-2.5 w-2.5 rounded-full border border-[var(--card)]" style={{ background: color }} />
+            {label}
+          </div>
+        ))}
+      </div>
+      <div className="mt-2.5 border-t border-[var(--rule)] pt-2 text-[10px] text-[var(--muted)]">
+        {FCODE_META.MT.label} · {FCODE_META.HLL.label} · {FCODE_META.PK.label}
+      </div>
+    </div>
+  );
+}
 
-  // Initialize Google Maps
+export default function MapView({ mountains, provider, onProviderChange, onSelect, theme, focusTarget, t }) {
+  const mapRef = useRef(null);
+  const [ready, setReady] = useState(false);
+  const items = mountains.slice(0, MAX_MARKERS);
+  const tile = TILES[provider] || TILES.google;
+
   useEffect(() => {
-    if (provider !== 'gmaps' || !gmapsKey) return;
-    if (gmapsReady && gmapDivRef.current && !gmapInstanceRef.current) {
-      try {
-        gmapInstanceRef.current = new window.google.maps.Map(gmapDivRef.current, {
-          center: { lat: 12.5, lng: 104.5 },
-          zoom: 7,
-          mapTypeId: 'terrain',
-          styles: theme === 'dark' ? darkGMapStyles : [],
-        });
-      } catch (e) {
-        console.error('GMap init error', e);
-      }
-    }
-  }, [provider, gmapsReady, gmapsKey, theme]);
-
-  // Update Google Maps theme reactively
-  useEffect(() => {
-    if (gmapInstanceRef.current) {
-      gmapInstanceRef.current.setOptions({
-        styles: theme === 'dark' ? darkGMapStyles : [],
-      });
-    }
-  }, [theme]);
-
-  // Update Google Maps markers
-  useEffect(() => {
-    if (provider !== 'gmaps' || !gmapInstanceRef.current || !gmapsReady) return;
-    gmarkersRef.current.forEach(m => m.setMap(null));
-    gmarkersRef.current = [];
-
-    const items = mountains.slice(0, 500);
-    items.forEach((m) => {
-      const col = elevColor(m.elev);
-      const marker = new window.google.maps.Marker({
-        position: { lat: m.lat, lng: m.lon },
-        map: gmapInstanceRef.current,
-        title: m._name,
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: m.fcode === 'MT' ? 8 : m.fcode === 'PK' ? 7 : 5,
-          fillColor: col,
-          fillOpacity: 0.9,
-          strokeColor: '#fff',
-          strokeWeight: 1.5,
-        },
-      });
-      marker.addListener('click', () => {
-        onSelect(m);
-      });
-      gmarkersRef.current.push(marker);
-    });
-
-    if (items.length > 0) {
-      const bounds = new window.google.maps.LatLngBounds();
-      items.forEach(m => bounds.extend({ lat: m.lat, lng: m.lon }));
-      gmapInstanceRef.current.fitBounds(bounds, 40);
-    }
-  }, [mountains, provider, gmapsReady, onSelect]);
-
-  // Invalidate map size when switching provider
-  useEffect(() => {
-    if (provider === 'osm' && mapRef.current) {
-      setTimeout(() => mapRef.current.invalidateSize(), 200);
-    }
-    if (provider === 'gmaps' && gmapInstanceRef.current) {
-      setTimeout(() => window.google.maps.event.trigger(gmapInstanceRef.current, 'resize'), 200);
-    }
+    const id = setTimeout(() => {
+      setReady(true);
+      mapRef.current?.invalidateSize();
+    }, 180);
+    return () => clearTimeout(id);
   }, [provider]);
 
-  const handleGmapsLoad = useCallback(() => {
-    onInitGmaps();
-  }, [onInitGmaps]);
-
-  // Dynamically load Google Maps script
-  useEffect(() => {
-    if (!gmapsKey || typeof window.google !== 'undefined') return;
-    const existing = document.querySelector('script[data-gmaps]');
-    if (existing) return;
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${gmapsKey}&loading=async&libraries=places&callback=onGmapsReactReady`;
-    script.async = true;
-    script.defer = true;
-    script.dataset.gmaps = '1';
-    script.onerror = () => console.error('GMaps load error');
-    window.onGmapsReactReady = () => {
-      onInitGmaps();
-    };
-    document.head.appendChild(script);
-  }, [gmapsKey, onInitGmaps]);
-
-  const focusMap = useCallback((lat, lon, z = 12) => {
-    if (provider === 'osm') {
-      setCenter([lat, lon]);
-      setZoom(z);
-    } else if (gmapInstanceRef.current && gmapsReady) {
-      gmapInstanceRef.current.setCenter({ lat, lng: lon });
-      gmapInstanceRef.current.setZoom(z);
-    }
-  }, [provider, gmapsReady]);
+  const handleProvider = useCallback((next) => onProviderChange(next), [onProviderChange]);
 
   return (
-    <div className="relative h-full w-full">
-      {provider === 'osm' && (
-        <MapContainer
-          center={center}
-          zoom={zoom}
-          zoomControl={true}
-          attributionControl={true}
-          style={{ height: '100%', width: '100%' }}
-          whenCreated={(map) => { mapRef.current = map; }}
-        >
-          <MapController center={center} zoom={zoom} />
-          <TileLayer
-            key={theme}
-            attribution={theme === 'dark' ? '&copy; <a href="https://carto.com/">CARTO</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>' : '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors'}
-            url={theme === 'dark' ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
-            maxZoom={18}
-          />
-          {osmItems.map((m) => {
-            const col = elevColor(m.elev);
-            const radius = m.fcode === 'MT' ? 7 : m.fcode === 'PK' ? 6 : 5;
-            return (
-              <CircleMarker
-                key={m.id}
-                center={[m.lat, m.lon]}
-                radius={radius}
-                pathOptions={{ fillColor: col, color: '#fff', weight: 1.5, fillOpacity: 0.85 }}
-                eventHandlers={{
-                  click: () => onSelect(m),
-                }}
-              >
-                <Popup>
-                  <div className="text-sm">
-                    <strong>{m._name}</strong><br />
-                    {m.elev ? `${m.elev}m` : m.dem ? `${m.dem}m` : '—'}
-                  </div>
-                </Popup>
-              </CircleMarker>
-            );
-          })}
-          <MapBounds items={osmItems} />
-        </MapContainer>
-      )}
+    <div className="relative h-full w-full overflow-hidden">
+      <MapContainer
+        ref={mapRef}
+        center={[12.5, 104.5]}
+        zoom={7}
+        zoomControl={false}
+        scrollWheelZoom
+        style={{ height: '100%', width: '100%' }}
+      >
+        <ZoomControl position="bottomright" />
+        <TileLayer
+          key={`${provider}-${theme}`}
+          url={tile.url}
+          subdomains={tile.subdomains}
+          attribution={tile.attribution}
+          maxZoom={tile.maxZoom}
+        />
+        {ready && items.map((m) => (
+          <Marker
+            key={m.id}
+            position={[m.lat, m.lon]}
+            icon={markerIcon(m, focusTarget?.id === m.id)}
+            eventHandlers={{ click: () => onSelect(m) }}
+          >
+            <Popup>
+              <div className="min-w-32">
+                <div className="serif text-sm font-bold text-[var(--ink)]">{m._name}</div>
+                <div className="mt-1 text-[11px] text-[var(--muted)]">
+                  <span className="font-bold text-[var(--rust)]">{elevationOf(m) ? `${elevationOf(m).toLocaleString()} m` : '—'}</span>
+                  {' · '}{m.province || '—'}
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+        <FlyController focusTarget={focusTarget} />
+        <FitBounds items={items} focusTarget={focusTarget} />
+      </MapContainer>
 
-      {provider === 'gmaps' && (
-        <div className="h-full w-full relative">
-          {!gmapsReady && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-[var(--text-secondary)] bg-[var(--bg)] z-10">
-              <div className="w-8 h-8 border-4 border-[var(--border)] border-t-[var(--accent)] rounded-full animate-spin mb-2" />
-              <span className="text-sm">Loading Google Maps…</span>
+      <div className="pointer-events-none absolute inset-0 z-[500] p-3 sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="map-panel pointer-events-auto flex items-center gap-3 px-3.5 py-2.5">
+            <MountainPin className="h-7 w-7 text-[var(--forest)]" />
+            <div className="leading-tight">
+              <div className="serif text-[15px] font-bold text-[var(--ink)]">{items.length.toLocaleString()} {t('shownOnMap')}</div>
+              <div className="text-[9px] uppercase tracking-[0.12em] text-[var(--muted)]">{mountains.length > MAX_MARKERS ? `${MAX_MARKERS}+ shown` : t('explore')}</div>
             </div>
-          )}
-          {!gmapsKey && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-[var(--text-secondary)] bg-[var(--bg)] z-10 p-6 text-center">
-              <MapPin className="w-10 h-10 mb-3 opacity-30" />
-              <p className="text-sm">Set your Google Maps API key in the menu ☰</p>
-            </div>
-          )}
-          <div ref={gmapDivRef} className="h-full w-full" />
+          </div>
+
+          <div className="map-panel pointer-events-auto flex items-center p-1">
+            {['google', 'osm'].map((key) => (
+              <button key={key} onClick={() => handleProvider(key)} className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors ${provider === key ? 'bg-[var(--forest)] text-white' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}>
+                {key === 'google' ? t('googleMaps') : t('osm')}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
+
+        <div className="absolute bottom-5 left-3 sm:left-5"><Legend t={t} /></div>
+
+        {!mountains.length && (
+          <div className="pointer-events-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <div className="map-panel max-w-xs px-6 py-8 text-center">
+              <Compass className="mx-auto h-8 w-8 text-[var(--forest)]" />
+              <p className="serif mt-3 text-lg font-bold">{t('noResultsTitle')}</p>
+              <p className="mt-1 text-[11px] text-[var(--muted)]">{t('noResultsBody')}</p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+function MountainPin({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 38" fill="none" aria-hidden="true">
+      <path d="M12 37 6 21h12z" fill="currentColor" />
+      <path d="M1 19h22l-7.9-14.6a2.3 2.3 0 0 0-4.2 0L1 19z" fill="currentColor" />
+      <path d="m6.5 10 2 2.5 2.5-2.5 2 3 2.5-2" stroke="var(--card)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MountKH — 5 homepage concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f6f3ec;--ink:#1d2a23;--forest:#2f5d4e;--rust:#b4542e;--rule:#d9d2c4;--muted:#768077}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:"Noto Sans Khmer","Space Grotesk",sans-serif}
+header{padding:36px 6vw 28px;border-bottom:1px solid var(--ink)}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--rust)}
+h1{font:700 clamp(30px,4vw,52px)/1.05 "Space Grotesk",sans-serif;letter-spacing:-.04em;margin:12px 0 8px}
+header p{color:var(--muted);font-size:13px;max-width:620px;line-height:1.7}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;padding:32px 6vw 70px}
+.card{background:#fff;border:1px solid var(--rule);text-decoration:none;color:inherit;transition:.2s;display:block}
+.card:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(29,42,35,.12);border-color:var(--forest)}
+.preview{height:210px;position:relative;overflow:hidden;border-bottom:1px solid var(--rule)}
+.preview .bar{height:26px;background:rgba(255,255,255,.75);display:flex;align-items:center;gap:5px;padding:0 10px}
+.preview .bar i{width:5px;height:5px;border-radius:50%;background:#c9c2b4}
+.preview .body{padding:18px}
+.preview .line{height:9px;border-radius:2px;margin-bottom:8px}
+.p1{background:linear-gradient(180deg,#e8efe8,#f7f4ec)}.p1 .l1{width:70%;height:20px;background:#1f5c4a}.p1 .l2{width:45%;background:#c15b32}.p1 .l3{width:90%;background:#cfd8cd}
+.p2{background:#f4efe3}.p2 .l1{width:55%;height:20px;background:#2c5f4c}.p2 .l2{width:80%;background:#b0552f}.p2 .l3{width:40%;background:#cfc5ae}
+.p3{background:#fbf8f1}.p3 .l1{width:78%;height:20px;background:#255743}.p3 .l2{width:50%;background:#c1522c}.p3 .l3{width:65%;background:#ddd6c6}
+.p4{background:#0a120f}.p4 .bar{background:rgba(255,255,255,.08)}.p4 .l1{width:62%;height:20px;background:#57e3a0}.p4 .l2{width:44%;background:#f2b24c}.p4 .l3{width:80%;background:#23362c}
+.p5{background:#fffaf1}.p5 .l1{width:66%;height:20px;background:#2f8b6b}.p5 .l2{width:48%;background:#ef7653}.p5 .l3{width:86%;background:#e9dfcf}
+.meta{padding:16px 18px 20px}.num{font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--rust)}
+.meta h2{font:700 17px "Space Grotesk",sans-serif;margin:6px 0}.meta p{font-size:11px;color:var(--muted);line-height:1.6;margin:0}
+.tag{display:inline-block;margin-top:12px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--forest);border:1px solid var(--rule);padding:4px 8px}
+.note{padding:0 6vw 50px;color:var(--muted);font-size:11px;line-height:1.7}
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">MountKH · design exploration · 5 concepts</div>
+  <h1>Five directions for the homepage.</h1>
+  <p>Each concept is a standalone, responsive HTML prototype. Open one, compare, and tell me which direction to build into the real app — or mix elements from several.</p>
+</header>
+<div class="grid">
+  <a class="card" href="01-summit.html">
+    <div class="preview p1"><div class="bar"><i></i><i></i><i></i></div><div class="body"><div class="line l1"></div><div class="line l2"></div><div class="line l3"></div></div></div>
+    <div class="meta"><div class="num">CONCEPT 01</div><h2>Summit</h2><p>Cinematic mountain ridges, oversized serif headline, floating search and a newspaper-style summit strip.</p><span class="tag">Editorial · Cinematic</span></div>
+  </a>
+  <a class="card" href="02-atlas.html">
+    <div class="preview p2"><div class="bar"><i></i><i></i><i></i></div><div class="body"><div class="line l1"></div><div class="line l2"></div><div class="line l3"></div></div></div>
+    <div class="meta"><div class="num">CONCEPT 02</div><h2>The Atlas</h2><p>Split-screen register and map with vintage cartography, contour textures, pins and a compass rose.</p><span class="tag">Cartographic · Classic</span></div>
+  </a>
+  <a class="card" href="03-field-notes.html">
+    <div class="preview p3"><div class="bar"><i></i><i></i><i></i></div><div class="body"><div class="line l1"></div><div class="line l2"></div><div class="line l3"></div></div></div>
+    <div class="meta"><div class="num">CONCEPT 03</div><h2>Field Notes</h2><p>Magazine masthead, illustrated plates, story cards and a pull quote. Warm, literary and human.</p><span class="tag">Magazine · Story-led</span></div>
+  </a>
+  <a class="card" href="04-night-expedition.html">
+    <div class="preview p4"><div class="bar"><i></i><i></i><i></i></div><div class="body"><div class="line l1"></div><div class="line l2"></div><div class="line l3"></div></div></div>
+    <div class="meta"><div class="num">CONCEPT 04</div><h2>Night Expedition</h2><p>Premium dark interface with radar rings, glowing elevation dots, live status and a data readout.</p><span class="tag">Dark · Precision</span></div>
+  </a>
+  <a class="card" href="05-explorer.html">
+    <div class="preview p5"><div class="bar"><i></i><i></i><i></i></div><div class="body"><div class="line l1"></div><div class="line l2"></div><div class="line l3"></div></div></div>
+    <div class="meta"><div class="num">CONCEPT 05</div><h2>Explorer</h2><p>Friendly, rounded and playful — illustrated peaks, sunny colors and big encouraging language.</p><span class="tag">Friendly · Playful</span></div>
+  </a>
+</div>
+<div class="note">All concepts use local CSS illustrations and Google Fonts. No external images or API keys. Khmer copy is real text, not placeholder graphics.</div>
+</body>
+</html>

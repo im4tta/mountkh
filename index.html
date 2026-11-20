@@ -1,31 +1,45 @@
 <!DOCTYPE html>
 <html lang="km">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#f8f9fc" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0b0d17" media="(prefers-color-scheme: dark)">
-<meta name="color-scheme" content="light dark">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="description" content="រុករកភ្នំ កំពង់ និងចំណាត់ថ្នាក់ភូមិសាស្ត្រនៅកម្ពុជា — OpenStreetMap & Google Maps">
-<meta name="description" lang="en" content="Explore Cambodia's mountains, hills & peaks — with OSM & Google Maps">
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
-<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
-<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-<link rel="manifest" href="/manifest.json">
-<meta name="msapplication-TileColor" content="#f8f9fc">
-<meta name="msapplication-TileImage" content="/icons/icon-192.png">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-<title>MountKH — ភ្នំកម្ពុជា</title>
-</head>
-<body>
-<div id="root"></div>
-<script type="module" src="/src/main.jsx"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f6f3ec" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#101613" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="រុករកភ្នំ កំពង់ និងចំណាត់ថ្នាក់ភូមិសាស្ត្រនៅកម្ពុជា — ផែនទី OSM និង Google Maps" />
+    <meta name="description" lang="en" content="Explore Cambodia's mountains, hills and peaks — an interactive map of 1,600+ named features." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="msapplication-TileColor" content="#2f5d4e" />
+    <meta name="msapplication-TileImage" content="/icons/icon-192.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=Noto+Sans+Khmer:wght@400;500;600;700&family=Noto+Serif+Khmer:wght@400;700&family=Nunito:wght@400;600;700;800;900&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=Noto+Sans+Khmer:wght@400;500;600;700&family=Noto+Serif+Khmer:wght@400;700&family=Nunito:wght@400;600;700;800;900&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=Noto+Sans+Khmer:wght@400;500;600;700&family=Noto+Serif+Khmer:wght@400;700&family=Nunito:wght@400;600;700;800;900&display=swap" /></noscript>
+
+    <link rel="preload" as="fetch" href="/mountains-kh.json" crossorigin="anonymous" />
+
+    <script>
+      // Old dev sessions may have a service worker caching Vite's hashed modules.
+      // Drop it before the app boots so local development always uses fresh code.
+      if (['localhost', '127.0.0.1'].includes(location.hostname) && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          if (regs.length) Promise.all(regs.map(function (r) { return r.unregister(); })).then(function () { location.reload(); });
+        }).catch(function () {});
+      }
+    </script>
+
+    <title>MountKH — ភ្នំកម្ពុជា</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
