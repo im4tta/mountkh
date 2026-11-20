@@ -75,7 +75,16 @@ export default function Header({
 
         <nav className="flex shrink-0 items-center gap-0.5">
           <button onClick={onShuffle} className="icon-btn hidden sm:inline-flex" title={t('random')} aria-label={t('random')}><Shuffle className="h-4 w-4" /></button>
-          <div className="flex items-center rounded-sm border border-[var(--rule)] p-0.5" role="group" aria-label={t('viewLabel') || 'View'}>
+          <button
+            onClick={() => onViewChange(view === 'list' ? 'map' : view === 'map' ? 'terrain' : 'list')}
+            className="icon-btn sm:hidden"
+            title={t('viewLabel')}
+            aria-label={t('viewLabel')}
+          >
+            {view === 'list' ? <MapIcon className="h-4 w-4" /> : view === 'map' ? <MountainGlyph name="mountain" className="h-4 w-4" /> : <List className="h-4 w-4" />}
+          </button>
+
+          <div className="hidden items-center rounded-sm border border-[var(--rule)] p-0.5 sm:flex" role="group" aria-label={t('viewLabel') || 'View'}>
             {[
               ['list', t('listView'), <List className="h-3.5 w-3.5" />],
               ['map', t('mapView'), <MapIcon className="h-3.5 w-3.5" />],
