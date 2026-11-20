@@ -250,6 +250,50 @@ button { cursor: pointer; }
   animation: shimmer 1.4s linear infinite;
 }
 
+/* ---------- 3D terrain markers / MapLibre controls ---------- */
+
+.terrain-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transform: translateY(4px);
+}
+.terrain-marker-pin { display: block; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.35)); transition: transform 150ms ease; }
+.terrain-marker:hover .terrain-marker-pin { transform: translateY(-3px) scale(1.12); }
+.terrain-marker-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 150px;
+  padding: 3px 6px;
+  background: rgba(255, 253, 248, 0.94);
+  border: 1px solid #d9d2c4;
+  border-radius: 2px;
+  color: #1d2a23;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.terrain-marker-label strong { font: 600 10px "IBM Plex Serif", Georgia, serif; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.terrain-marker-label small { font-size: 8px; font-weight: 700; color: #b4542e; }
+.maplibregl-ctrl-group {
+  background: var(--card) !important;
+  border: 1px solid var(--rule) !important;
+  border-radius: 4px !important;
+  box-shadow: var(--shadow-soft) !important;
+}
+.maplibregl-ctrl-group button { width: 32px !important; height: 32px !important; }
+.maplibregl-ctrl-group button + button { border-top-color: var(--rule) !important; }
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: none; }
+.dark .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(1); }
+.maplibregl-ctrl-terrain input { accent-color: var(--forest); }
+.maplibregl-ctrl-attrib { font-size: 9px !important; background: rgba(255, 253, 248, 0.85) !important; }
+
 /* ---------- Homepage skins: The Atlas & Explorer ---------- */
 
 .skin-atlas {

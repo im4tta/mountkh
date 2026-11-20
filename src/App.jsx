@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { lazy, Suspense, useState, useEffect, useMemo, useCallback } from 'react';
 import { I18N } from './lib/i18n';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { elevationOf } from './lib/utils';
@@ -6,6 +6,8 @@ import Header from './components/Header';
 import FilterPanel from './components/FilterPanel';
 import ListView from './components/ListView';
 import MapView from './components/MapView';
+
+const TerrainView = lazy(() => import('./components/TerrainView'));
 import DetailPanel from './components/DetailPanel';
 import Sidebar from './components/Sidebar';
 import StatsBar from './components/StatsBar';
@@ -180,7 +182,7 @@ export default function App() {
       <Header
         search={search} onSearch={setSearch}
         activeTab={activeTab} onTabChange={setActiveTab}
-        view={view} onToggleView={() => setView((v) => (v === 'list' ? 'map' : 'list'))}
+        view={view} onViewChange={setView}
         theme={theme} onToggleTheme={toggleTheme}
         lang={lang} onToggleLang={() => setLang((l) => (l === 'km' ? 'en' : 'km'))}
         onMenu={() => setSidebarOpen(true)} onHome={goHome}
@@ -214,11 +216,18 @@ export default function App() {
             lang={lang} t={t} onClear={clearFilters}
             onExploreMap={() => setView('map')} showIntro={showIntro}
           />
-        ) : (
+        ) : view === 'map' ? (
           <MapView
             mountains={filtered} provider={provider} onProviderChange={setProvider}
             onSelect={showDetail} theme={theme} focusTarget={mapFocus} t={t}
           />
+        ) : (
+          <Suspense fallback={<div className="grid h-full place-items-center bg-[var(--paper)]"><div className="text-xs font-semibold text-[var(--muted)]">Loading 3D terrain…</div></div>}>
+            <TerrainView
+              mountains={filtered} onSelect={showDetail} theme={theme}
+              focusTarget={mapFocus} t={t}
+            />
+          </Suspense>
         )}
       </main>
 

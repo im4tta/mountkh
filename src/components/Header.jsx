@@ -13,7 +13,7 @@ const TABS = [
 
 export default function Header({
   search, onSearch, activeTab, onTabChange,
-  view, onToggleView,
+  view, onViewChange,
   theme, onToggleTheme, lang, onToggleLang, onMenu, onHome,
   sort, onSortChange, filtersOpen, onToggleFilters,
   filterCount, onClearFilters, onShuffle, t,
@@ -75,9 +75,24 @@ export default function Header({
 
         <nav className="flex shrink-0 items-center gap-0.5">
           <button onClick={onShuffle} className="icon-btn hidden sm:inline-flex" title={t('random')} aria-label={t('random')}><Shuffle className="h-4 w-4" /></button>
-          <button onClick={onToggleView} className="icon-btn" title={view === 'list' ? t('mapView') : t('listView')} aria-label={view === 'list' ? t('mapView') : t('listView')}>
-            {view === 'list' ? <MapIcon className="h-4 w-4" /> : <List className="h-4 w-4" />}
-          </button>
+          <div className="flex items-center rounded-sm border border-[var(--rule)] p-0.5" role="group" aria-label={t('viewLabel') || 'View'}>
+            {[
+              ['list', t('listView'), <List className="h-3.5 w-3.5" />],
+              ['map', t('mapView'), <MapIcon className="h-3.5 w-3.5" />],
+              ['terrain', t('terrainView') || '3D', <MountainGlyph name="mountain" className="h-3.5 w-3.5" />],
+            ].map(([key, label, icon]) => (
+              <button
+                key={key}
+                onClick={() => onViewChange(key)}
+                title={label}
+                aria-label={label}
+                aria-pressed={view === key}
+                className={`grid h-7 w-7 place-items-center rounded-sm transition-colors ${view === key ? 'bg-[var(--forest)] text-white' : 'text-[var(--muted)] hover:text-[var(--ink)]'}`}
+              >
+                {icon}
+              </button>
+            ))}
+          </div>
           <button onClick={onToggleLang} className="icon-btn w-9 text-[10px] font-extrabold uppercase" aria-label={t('langLabel')}>{lang === 'km' ? 'EN' : 'KM'}</button>
           <button onClick={onToggleTheme} className="icon-btn" aria-label="Toggle theme">{theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button>
           <button onClick={onMenu} className="icon-btn hidden lg:inline-flex" aria-label={t('menu')}><Menu className="h-4 w-4" /></button>

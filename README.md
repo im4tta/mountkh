@@ -7,6 +7,7 @@ A light, editorial field guide to Cambodia's mountains — **1,605 named feature
 ## What it does
 
 - 🗺 **Google map tiles by default** — no API key needed; switch to OpenStreetMap anytime
+- 🏔️ **Real 3D terrain view** — MapLibre GL with keyless Mapzen Terrarium DEM, satellite/topographic layers, pitch/bearing controls and elevation-coloured peak markers (WebGL 2 required)
 - ⛰ **Mountain-shaped map pins** from [Tabler Icons](https://tabler.io/icons) via [IconMCP](https://iconmcp.com/), coloured by elevation
 - 🎨 **Two homepages, switchable in the menu** — *The Atlas* (concept 2: split register + vintage map) and *Explorer* (concept 5: playful illustrated hero). Your choice is remembered.
 - ⚡ **Virtualized scrolling** — only the visible rows are rendered; sticky index header and back-to-top button keep the page short and fast
@@ -61,7 +62,7 @@ Result: 1,205 high-confidence matches, 1,097 elevations filled, 88 conflicts whe
 ## Security & dependencies
 
 - Latest majors: React 19, react-leaflet 5, Vite 8, Tailwind 4, lucide-react 1. `npm audit`: **0 vulnerabilities**.
-- Leaflet CSS is bundled locally; no CDN scripts or styles (only the Google Fonts stylesheet).
+- Leaflet CSS is bundled locally; no CDN scripts or styles (only the Google Fonts stylesheet). 3D terrain tiles come from AWS Terrarium and Esri/OSM raster endpoints — no API keys.
 - The dataset JSON is preloaded, React is deduped in Vite, rows use TanStack Virtual, and React.memo prevents needless re-renders.
 - CSP, HSTS, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `X-Frame-Options` and COOP/COAP are set in `vercel.json`.
 - Service worker uses network-first navigation and versioned caches.
