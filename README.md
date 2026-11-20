@@ -9,6 +9,7 @@ A light, editorial field guide to Cambodia's mountains — **1,605 named feature
 - 🗺 **Google map tiles by default** — no API key needed; switch to OpenStreetMap anytime
 - 🏔️ **Real 3D terrain view** — MapLibre GL with keyless Mapzen Terrarium DEM, satellite/topographic layers, pitch/bearing controls and elevation-coloured peak markers (WebGL 2 required)
 - 🧭 **Summit 360°** — stand on the actual summit using a Three.js terrain mesh built from real DEM + satellite tiles; drag to look around, scroll to zoom, auto-rotate and a live compass heading
+- 🏔️ **Nearby peaks** labelled in the panorama — click a label to jump to that summit, or click the ground to walk there
 - ⛰ **Mountain-shaped map pins** from [Tabler Icons](https://tabler.io/icons) via [IconMCP](https://iconmcp.com/), coloured by elevation
 - 🎨 **Two homepages, switchable in the menu** — *Explorer* (concept 5: playful illustrated hero, default) and *The Atlas* (concept 2: split register + vintage map). Your choice is remembered.
 - ⚡ **Virtualized scrolling** — only the visible rows are rendered; sticky index header and back-to-top button keep the page short and fast

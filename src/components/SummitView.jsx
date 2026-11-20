@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { Compass, Loader2, RotateCcw, X, Play, Pause, Mountain } from 'lucide-react';
-import { elevationOf } from '../lib/utils';
+import { Compass, Loader2, RotateCcw, X, Play, Pause, Mountain, Footprints } from 'lucide-react';
+import { elevationOf, haversine } from '../lib/utils';
 
 const ZOOM = 12;
 const GRID = 4;
@@ -44,13 +44,20 @@ function headingLabel(deg) {
   return dirs[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
 }
 
-export default function SummitView({ mountain, onClose, t }) {
+export default function SummitView({ mountain, mountains = [], onJump, onClose, t }) {
   const mountRef = useRef(null);
+  const labelsRef = useRef(null);
+  const walkRef = useRef(null);
+  const jumpRef = useRef(onJump);
   const stateRef = useRef({ yaw: 0, pitch: -3, fov: 74, auto: false });
   const [status, setStatus] = useState('loading');
   const [auto, setAuto] = useState(false);
+  const [walking, setWalking] = useState(false);
   const headingRef = useRef(null);
   const compassRef = useRef(null);
+  const walkRefText = useRef(null);
+
+  jumpRef.current = onJump;
   const [peakElev, setPeakElev] = useState(null);
 
   useEffect(() => {
@@ -97,8 +104,11 @@ export default function SummitView({ mountain, onClose, t }) {
         const gridCenterLat = latFromTile(startY + GRID / 2, z);
         const mPerPixel = 156543.03392 * Math.cos(mountain.lat * Math.PI / 180) / 2 ** z;
         const worldWidth = SIZE * mPerPixel;
-        const peakX = ((mountain.lon - gridCenterLon) * 111320 * Math.cos(mountain.lat * Math.PI / 180));
-        const peakZ = -((mountain.lat - gridCenterLat) * 110540);
+        const toLocal = (lat, lon) => ({
+          x: (lon - gridCenterLon) * 111320 * Math.cos(lat * Math.PI / 180),
+          z: -(lat - gridCenterLat) * 110540,
+        });
+        const { x: peakX, z: peakZ } = toLocal(mountain.lat, mountain.lon);
 
         const px = Math.max(0, Math.min(SIZE - 1, SIZE / 2 + peakX / mPerPixel));
         const py = Math.max(0, Math.min(SIZE - 1, SIZE / 2 - peakZ / mPerPixel));
@@ -135,6 +145,38 @@ export default function SummitView({ mountain, onClose, t }) {
         const camera = new THREE.PerspectiveCamera(stateRef.current.fov, 1, 1, worldWidth * 4);
         camera.rotation.order = 'YXZ';
         camera.position.set(peakX, elev * EXAGGERATION + EYE_HEIGHT, peakZ);
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+
+        // Nearby peaks are projected into the 360° view as clickable labels.
+        const labelData = [];
+        const nearby = mountains
+          .filter((m) => m.id !== mountain.id && Number.isFinite(m.lat) && Number.isFinite(m.lon))
+          .map((m) => ({ m, d: haversine(mountain.lat, mountain.lon, m.lat, m.lon) }))
+          .filter((item) => item.d <= 30000)
+          .sort((a, b) => a.d - b.d)
+          .slice(0, 18);
+        nearby.forEach(({ m, d }) => {
+          const local = toLocal(m.lat, m.lon);
+          const ppx = SIZE / 2 + local.x / mPerPixel;
+          const ppy = SIZE / 2 - local.z / mPerPixel;
+          if (ppx < 0 || ppx >= SIZE || ppy < 0 || ppy >= SIZE) return;
+          const h = sampleHeight(heights, ppx, ppy);
+          const vec = new THREE.Vector3(local.x, h * EXAGGERATION + 55, local.z);
+          const el = document.createElement('button');
+          el.type = 'button';
+          el.className = 'summit-peak-label';
+          const name = document.createElement('strong');
+          name.textContent = m._name || m.name || '';
+          const meta = document.createElement('small');
+          meta.textContent = `${elevationOf(m) ? `${elevationOf(m).toLocaleString()} m` : '—'} · ${(d / 1000).toFixed(1)} km`;
+          el.append(name, meta);
+          el.addEventListener('click', (event) => { event.stopPropagation(); jumpRef.current?.(m); });
+          const projectedInitial = vec.clone().project(camera);
+          el.style.transform = `translate(-50%, -50%) translate(${(projectedInitial.x * 0.5 + 0.5) * window.innerWidth}px, ${(-projectedInitial.y * 0.5 + 0.5) * window.innerHeight}px)`;
+          labelsRef.current?.appendChild(el);
+          labelData.push({ vec, el });
+        });
 
         renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -152,18 +194,47 @@ export default function SummitView({ mountain, onClose, t }) {
         resize();
         window.addEventListener('resize', resize);
 
+        const raycaster = new THREE.Raycaster();
+        const ndc = new THREE.Vector2();
+        const projected = new THREE.Vector3();
         let dragging = false;
-        let lastX = 0, lastY = 0;
-        const down = (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; renderer.domElement.style.cursor = 'grabbing'; };
+        let lastX = 0, lastY = 0, pointerStartX = 0, pointerStartY = 0, moved = 0;
+        const down = (e) => {
+          dragging = true; moved = 0;
+          lastX = pointerStartX = e.clientX; lastY = pointerStartY = e.clientY;
+          renderer.domElement.style.cursor = 'grabbing';
+        };
         const move = (e) => {
           if (!dragging) return;
           const dx = e.clientX - lastX;
           const dy = e.clientY - lastY;
           lastX = e.clientX; lastY = e.clientY;
+          moved += Math.abs(dx) + Math.abs(dy);
+          if (walkRef.current) { walkRef.current = null; setWalking(false); }
           stateRef.current.yaw -= dx * 0.22;
           stateRef.current.pitch = Math.max(-70, Math.min(45, stateRef.current.pitch - dy * 0.16));
         };
-        const up = () => { dragging = false; renderer.domElement.style.cursor = 'grab'; };
+        const up = (e) => {
+          if (!dragging) return;
+          dragging = false;
+          renderer.domElement.style.cursor = 'grab';
+          if (Math.abs(e.clientX - pointerStartX) + Math.abs(e.clientY - pointerStartY) > 8) return;
+          const rect = renderer.domElement.getBoundingClientRect();
+          ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+          raycaster.setFromCamera(ndc, camera);
+          const hit = raycaster.intersectObject(terrain, false)[0];
+          if (!hit) return;
+          const from = camera.position.clone();
+          const to = hit.point.clone();
+          const dist = from.distanceTo(to);
+          const dur = Math.max(900, Math.min(7000, (dist / 70) * 1000));
+          const yaw = Math.atan2(-(to.x - from.x), -(to.z - from.z)) * 180 / Math.PI;
+          walkRef.current = { from, to, start: performance.now(), dur, yaw };
+          stateRef.current.auto = false;
+          setAuto(false);
+          setWalking(true);
+        };
         const wheel = (e) => {
           e.preventDefault();
           stateRef.current.fov = Math.max(35, Math.min(95, stateRef.current.fov + e.deltaY * 0.02));
@@ -181,9 +252,35 @@ export default function SummitView({ mountain, onClose, t }) {
           const dt = Math.min((now - last) / 1000, 0.1);
           last = now;
           if (stateRef.current.auto) stateRef.current.yaw += dt * 8;
+
+          const walk = walkRef.current;
+          if (walk) {
+            const p = Math.min(1, (now - walk.start) / walk.dur);
+            const eased = p * p * (3 - 2 * p);
+            camera.position.x = walk.from.x + (walk.to.x - walk.from.x) * eased;
+            camera.position.z = walk.from.z + (walk.to.z - walk.from.z) * eased;
+            const ground = sampleHeight(heights, SIZE / 2 + camera.position.x / mPerPixel, SIZE / 2 - camera.position.z / mPerPixel);
+            camera.position.y = ground * EXAGGERATION + EYE_HEIGHT;
+            stateRef.current.yaw = walk.yaw;
+            if (p >= 1) { walkRef.current = null; setWalking(false); }
+          }
+
           camera.rotation.y = stateRef.current.yaw * Math.PI / 180;
           camera.rotation.x = -stateRef.current.pitch * Math.PI / 180;
           renderer.render(scene, camera);
+
+          const vw = renderer.domElement.clientWidth;
+          const vh = renderer.domElement.clientHeight;
+          labelData.forEach(({ vec, el }) => {
+            projected.copy(vec).project(camera);
+            if (projected.z < -1 || projected.z > 1 || Math.abs(projected.x) > 1.05 || Math.abs(projected.y) > 1.05) {
+              el.style.display = 'none';
+              return;
+            }
+            el.style.display = 'flex';
+            el.style.transform = `translate(-50%, -50%) translate(${(projected.x * 0.5 + 0.5) * vw}px, ${(-projected.y * 0.5 + 0.5) * vh}px)`;
+          });
+
           const h = Math.round(((stateRef.current.yaw % 360) + 360) % 360);
           if (headingRef.current) headingRef.current.textContent = `${headingLabel(h)} · ${h}°`;
           if (compassRef.current) compassRef.current.style.transform = `rotate(${-h}deg)`;
@@ -199,6 +296,9 @@ export default function SummitView({ mountain, onClose, t }) {
           renderer.domElement.removeEventListener('pointerdown', down);
           renderer.domElement.removeEventListener('wheel', wheel);
           cancelAnimationFrame(frame);
+          walkRef.current = null;
+          labelData.forEach(({ el }) => el.remove());
+          if (labelsRef.current) labelsRef.current.innerHTML = '';
           geometry.dispose();
           material.dispose();
           texture.dispose();
@@ -213,7 +313,7 @@ export default function SummitView({ mountain, onClose, t }) {
 
     const cleanupPromise = start();
     return () => { disposed = true; cleanupPromise.then((fn) => fn && fn()); };
-  }, [mountain]);
+  }, [mountain, mountains]);
 
   const toggleAuto = () => {
     stateRef.current.auto = !stateRef.current.auto;
@@ -253,7 +353,7 @@ export default function SummitView({ mountain, onClose, t }) {
           <div className="pointer-events-auto max-w-[300px] border border-white/15 bg-black/45 px-4 py-3 backdrop-blur-md">
             <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--forest)]">Summit view · 360°</div>
             <h2 className="serif mt-1 text-lg font-bold leading-tight">{mountain?._name}</h2>
-            <p className="mt-1 text-[11px] text-white/65">{peakElev ? `${peakElev.toLocaleString()} m` : '—'} · Drag to look around · Scroll to zoom</p>
+            <p className="mt-1 text-[11px] text-white/65">{peakElev ? `${peakElev.toLocaleString()} m` : '—'} · Drag to look · Click ground to walk · Scroll to zoom</p>
           </div>
           <div className="pointer-events-auto flex items-center gap-2">
             <button onClick={toggleAuto} className="grid h-9 w-9 place-items-center border border-white/15 bg-black/45 hover:bg-white/10" title="Auto rotate" aria-label="Auto rotate">
@@ -267,7 +367,10 @@ export default function SummitView({ mountain, onClose, t }) {
         <div className="pointer-events-auto absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 border border-white/15 bg-black/45 px-4 py-2 backdrop-blur-md">
           <Compass ref={compassRef} className="h-5 w-5 text-[var(--rust)]" />
           <span ref={headingRef} className="serif text-sm font-bold tracking-wider">N · 0°</span>
+          {walking && <span className="flex items-center gap-1 border-l border-white/20 pl-3 text-[10px] font-bold uppercase tracking-wide text-[var(--forest)]"><Footprints className="h-3.5 w-3.5" /> Walking…</span>}
         </div>
+
+        <div ref={labelsRef} className="pointer-events-none absolute inset-0 overflow-hidden" />
 
         <div className="pointer-events-none absolute inset-x-0 top-1/2 flex justify-center">
           <span className="h-5 w-5 rounded-full border border-white/50 opacity-60" />

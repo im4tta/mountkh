@@ -294,6 +294,31 @@ button { cursor: pointer; }
 .maplibregl-ctrl-terrain input { accent-color: var(--forest); }
 .maplibregl-ctrl-attrib { font-size: 9px !important; background: rgba(255, 253, 248, 0.85) !important; }
 
+/* ---------- Summit 360 peak labels ---------- */
+
+.summit-peak-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: auto;
+  cursor: pointer;
+  padding: 3px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 2px;
+  background: rgba(15, 25, 20, 0.72);
+  color: #f6f3ec;
+  line-height: 1.15;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.summit-peak-label:hover { background: var(--forest); border-color: #fff; }
+.summit-peak-label strong { font: 600 10px "IBM Plex Serif", Georgia, serif; }
+.summit-peak-label small { font-size: 8px; font-weight: 700; color: #e69167; }
+
 /* ---------- Homepage skins: The Atlas & Explorer ---------- */
 
 .skin-atlas {

@@ -255,7 +255,11 @@ export default function App() {
 
       {summitMountain && (
         <Suspense fallback={<div className="fixed inset-0 z-[1100] grid place-items-center bg-[#0d1512] text-xs text-white">Loading summit view…</div>}>
-          <SummitView mountain={summitMountain} onClose={() => setSummitMountain(null)} t={t} />
+          <SummitView
+            mountain={summitMountain} mountains={filtered}
+            onJump={setSummitMountain}
+            onClose={() => setSummitMountain(null)} t={t}
+          />
         </Suspense>
       )}
 
