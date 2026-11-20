@@ -81,10 +81,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Inside Tailwind's base layer so text-* utilities reliably override colour. */
 @layer base {
-  button, input, select { font: inherit; color: inherit; }
+  :where(button, input, select) { font: inherit; color: inherit; }
 }
-button { cursor: pointer; }
+
+:where(button) { cursor: pointer; }
 
 :focus-visible {
   outline: 2px solid var(--forest);
@@ -92,6 +94,10 @@ button { cursor: pointer; }
 }
 
 ::selection { background: var(--forest-soft); color: var(--forest-deep); }
+
+/* Our component styles live in Tailwind's components layer so utilities
+   (hidden, text-white, etc.) always win over them in the cascade. */
+@layer components {
 
 .serif { font-family: var(--font-display); }
 
@@ -112,7 +118,6 @@ button { cursor: pointer; }
   box-shadow: var(--shadow-soft);
 }
 
-@layer components {
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -150,8 +155,6 @@ button { cursor: pointer; }
 .dark .btn-solid { color: #101613; }
 .btn-solid:hover { background: var(--forest-deep); border-color: var(--forest-deep); }
 
-}
-
 .chip {
   display: inline-flex;
   align-items: center;
@@ -179,8 +182,7 @@ button { cursor: pointer; }
 .field::placeholder { color: var(--muted); }
 .field:focus { outline: none; border-color: var(--forest); box-shadow: 0 0 0 3px color-mix(in srgb, var(--forest) 16%, transparent); }
 
-/* Search fields need room for the leading icon and the trailing shortcut key.
-   Unlayered CSS wins over Tailwind utilities, so this lives here. */
+/* Search fields need room for the leading icon and the trailing shortcut key. */
 .field-search {
   padding-left: 2.5rem;
   padding-right: 3.5rem;
@@ -225,6 +227,9 @@ button { cursor: pointer; }
   box-shadow: var(--shadow-soft);
 }
 
+} /* end @layer components */
+
+/* Leaflet overrides must stay unlayered: Leaflet's own stylesheet is unlayered. */
 .leaflet-container { background: var(--paper) !important; font-family: var(--font-sans); }
 .dark .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.92) saturate(0.65); }
 .leaflet-control-zoom { border: 1px solid var(--rule) !important; border-radius: 4px !important; box-shadow: var(--shadow-soft) !important; }
@@ -235,6 +240,8 @@ button { cursor: pointer; }
 .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--card) !important; color: var(--ink) !important; border-radius: 4px !important; box-shadow: var(--shadow-lift) !important; }
 .leaflet-popup-content { margin: 0.7rem 0.9rem !important; font-size: 0.8rem !important; }
 .leaflet-popup-close-button { color: var(--muted) !important; }
+
+@layer components {
 
 .marker-selected { animation: marker-pop 220ms ease-out both; }
 @keyframes marker-pop { from { transform: scale(0.7); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
@@ -289,6 +296,10 @@ button { cursor: pointer; }
 }
 .terrain-marker-label strong { font: 600 10px "IBM Plex Serif", Georgia, serif; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
 .terrain-marker-label small { font-size: 8px; font-weight: 700; color: #b4542e; }
+
+} /* end @layer components */
+
+/* MapLibre overrides stay unlayered for the same reason. */
 .maplibregl-ctrl-group {
   background: var(--card) !important;
   border: 1px solid var(--rule) !important;
@@ -303,6 +314,8 @@ button { cursor: pointer; }
 .maplibregl-ctrl-attrib { font-size: 9px !important; background: rgba(255, 253, 248, 0.85) !important; }
 
 /* ---------- Summit 360 peak labels ---------- */
+
+@layer components {
 
 .summit-peak-label {
   position: absolute;
@@ -326,6 +339,8 @@ button { cursor: pointer; }
 .summit-peak-label:hover { background: var(--forest); border-color: #fff; }
 .summit-peak-label strong { font: 600 10px "IBM Plex Serif", Georgia, serif; }
 .summit-peak-label small { font-size: 8px; font-weight: 700; color: #e69167; }
+
+} /* end @layer components */
 
 /* ---------- Homepage skins: The Atlas & Explorer ---------- */
 
