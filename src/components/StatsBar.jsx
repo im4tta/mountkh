@@ -7,7 +7,7 @@ export default function StatsBar({ total, showing, search, provider, t }) {
         {showing !== total && <span className="truncate">· {total.toLocaleString()} {t('statsFeatures')}</span>}
         {search && <span className="hidden truncate italic sm:inline">“{search}”</span>}
       </div>
-      <div className="flex shrink-0 items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em]">
+      <div className="hidden shrink-0 items-center gap-2 text-[10px] sm:flex font-semibold uppercase tracking-[0.12em]">
         <span className="h-1.5 w-1.5 rounded-full bg-[var(--forest)]" />
         <span className="text-[var(--muted)]">{provider === 'google' ? t('googleMaps') : t('osm')}</span>
       </div>

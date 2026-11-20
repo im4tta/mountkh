@@ -112,17 +112,18 @@ export default function DetailPanel({
         aria-modal="true"
         aria-label={mountain._name}
         className={`fixed z-[1001] flex flex-col overflow-hidden border-[var(--rule)] bg-[var(--card)] shadow-[var(--shadow-lift)]
-          inset-x-0 bottom-0 max-h-[92vh] rounded-t-lg border-t
+          inset-x-0 bottom-0 max-h-[92dvh] rounded-t-2xl border-t pb-[env(safe-area-inset-bottom)]
           lg:inset-y-0 lg:left-auto lg:right-0 lg:max-h-none lg:w-[480px] lg:rounded-none lg:border-l lg:border-t-0
           transition-transform duration-300 ease-out
           ${open ? 'translate-y-0 lg:translate-x-0' : 'pointer-events-none translate-y-full lg:translate-y-0 lg:translate-x-full'}`}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-[var(--rule)] px-5 py-3">
+        <div className="relative flex shrink-0 items-center justify-between border-b border-[var(--rule)] px-5 py-3">
+          <span className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-[var(--rule-strong)] lg:hidden" aria-hidden="true" />
           <span className="eyebrow">Field note · {mountain.id}</span>
           <button onClick={onClose} className="icon-btn" aria-label={t('close')}><X className="h-4 w-4" /></button>
         </div>
 
-        <div className="scroll-area flex-1 px-6 py-7">
+        <div className="scroll-area flex-1 overscroll-contain px-5 py-6 sm:px-6 sm:py-7">
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
             <span>{country.flag}</span>
             <span>{lang === 'km' ? country.labelKm : country.label}</span>
@@ -163,7 +164,7 @@ export default function DetailPanel({
             </div>
           )}
 
-          <div className="mt-7 flex flex-wrap gap-2">
+          <div className="mt-7 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             <button onClick={() => onToggleFav(mountain.id)} className={`btn ${isFav ? 'btn-solid' : ''}`}>
               <Heart className={`h-4 w-4 ${isFav ? 'fill-current' : ''}`} /> {isFav ? t('removeFavorite') : t('addFavorite')}
             </button>

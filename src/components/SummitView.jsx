@@ -477,28 +477,28 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         </div>
       )}
 
-      <div className="pointer-events-none absolute inset-0 p-4 sm:p-6">
+      <div className="pointer-events-none absolute inset-0 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6">
         <div className="flex items-start justify-between gap-3">
-          <div className="pointer-events-auto max-w-[300px] border border-white/15 bg-black/45 px-4 py-3 backdrop-blur-md">
+          <div className="pointer-events-auto min-w-0 max-w-[300px] border border-white/15 bg-black/45 px-4 py-3 backdrop-blur-md">
             <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--forest)]">Summit view · 360°</div>
             <h2 className="serif mt-1 text-lg font-bold leading-tight">{mountain?._name}</h2>
-            <p className="mt-1 text-[11px] text-white/65">Drag to look · Click ground to walk · Scroll to zoom</p>
+            <p className="mt-1 hidden text-[11px] text-white/65 sm:block">Drag to look · Click ground to walk · Scroll to zoom</p>
             <div className="mt-2 flex items-center gap-3 border-t border-white/15 pt-2 text-[10px] font-bold uppercase tracking-wide text-white/70">
               <span ref={elevationRef} className="text-[var(--ochre)]">{peakElev ? `${peakElev.toLocaleString()} m` : '—'}</span>
               <span className="flex items-center gap-1"><Sun className="h-3 w-3" /> Live sun</span>
               <span className="flex items-center gap-1"><Waves className="h-3 w-3" /> Water</span>
             </div>
           </div>
-          <div className="pointer-events-auto flex items-center gap-2">
-            <button onClick={toggleAuto} className="grid h-9 w-9 place-items-center border border-white/15 bg-black/45 hover:bg-white/10" title="Auto rotate" aria-label="Auto rotate">
+          <div className="pointer-events-auto flex shrink-0 flex-col items-center gap-2 sm:flex-row">
+            <button onClick={toggleAuto} className="grid h-11 w-11 place-items-center border border-white/15 bg-black/45 hover:bg-white/10" title="Auto rotate" aria-label="Auto rotate">
               {auto ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>
-            <button onClick={reset} className="grid h-9 w-9 place-items-center border border-white/15 bg-black/45 hover:bg-white/10" title="Reset view" aria-label="Reset view"><RotateCcw className="h-4 w-4" /></button>
-            <button onClick={onClose} className="grid h-9 w-9 place-items-center border border-white/15 bg-black/45 hover:bg-white/10" title="Close" aria-label="Close"><X className="h-4 w-4" /></button>
+            <button onClick={reset} className="grid h-11 w-11 place-items-center border border-white/15 bg-black/45 hover:bg-white/10" title="Reset view" aria-label="Reset view"><RotateCcw className="h-4 w-4" /></button>
+            <button onClick={onClose} className="grid h-11 w-11 place-items-center border border-white/15 bg-black/45 hover:bg-white/10" title="Close" aria-label="Close"><X className="h-4 w-4" /></button>
           </div>
         </div>
 
-        <div className="pointer-events-auto absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 border border-white/15 bg-black/45 px-4 py-2 backdrop-blur-md">
+        <div className="pointer-events-auto absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 flex -translate-x-1/2 items-center gap-3 border border-white/15 bg-black/45 px-4 py-2 backdrop-blur-md">
           <Compass ref={compassRef} className="h-5 w-5 text-[var(--rust)]" />
           <span ref={headingRef} className="serif text-sm font-bold tracking-wider">N · 0°</span>
           {walking && <span className="flex items-center gap-1 border-l border-white/20 pl-3 text-[10px] font-bold uppercase tracking-wide text-[var(--forest)]"><Footprints className="h-3.5 w-3.5" /> Walking…</span>}

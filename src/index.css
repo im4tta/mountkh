@@ -68,6 +68,9 @@
 }
 
 html, body, #root { height: 100%; }
+html { -webkit-text-size-adjust: 100%; }
+body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+button, a, select { touch-action: manipulation; }
 
 body {
   margin: 0;
@@ -78,7 +81,9 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-button, input, select { font: inherit; color: inherit; }
+@layer base {
+  button, input, select { font: inherit; color: inherit; }
+}
 button { cursor: pointer; }
 
 :focus-visible {
@@ -107,6 +112,7 @@ button { cursor: pointer; }
   box-shadow: var(--shadow-soft);
 }
 
+@layer components {
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -143,6 +149,8 @@ button { cursor: pointer; }
 .btn-solid { background: var(--forest); border-color: var(--forest); color: #fffdf8; }
 .dark .btn-solid { color: #101613; }
 .btn-solid:hover { background: var(--forest-deep); border-color: var(--forest-deep); }
+
+}
 
 .chip {
   display: inline-flex;
@@ -507,3 +515,31 @@ button { cursor: pointer; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 639px) {
+  /* 16px stops iOS Safari zooming into focused fields */
+  input, select, textarea, .field { font-size: 16px !important; }
+  .explorer-stat { flex-direction: column; align-items: flex-start; gap: 10px; border-radius: 18px; padding: 12px; }
+  .explorer-stat-icon { width: 36px; height: 36px; border-radius: 12px; }
+  .explorer-search { padding: 5px 5px 5px 16px; }
+  .explorer-search-btn { padding: 11px 14px; }
+  .explorer-chip { padding: 10px 16px; font-size: 12px; }
+  .explorer-tag { font-size: 11px; padding: 7px 12px; }
+  .explorer-card { min-height: 128px; border-radius: 18px; padding: 14px; }
+  .explorer-card:hover { transform: none; }
+  .feature-row:hover { padding-left: 1rem; }
+  .btn { min-height: 2.75rem; font-size: 0.8125rem; }
+  .icon-btn { width: 2.75rem; height: 2.75rem; }
+  .leaflet-control-zoom a { width: 40px !important; height: 40px !important; line-height: 40px !important; }
+  .maplibregl-ctrl-group button { width: 40px !important; height: 40px !important; }
+}
+/* Leave room for the mobile bottom view bar */
+@media (max-width: 767px) {
+  .app-main { padding-bottom: calc(3.5rem + env(safe-area-inset-bottom)); }
+  .leaflet-bottom, .maplibregl-ctrl-bottom-left, .maplibregl-ctrl-bottom-right { margin-bottom: 0; }
+}
+
+/* Letter-spacing splits Khmer clusters apart; keep it for Latin only */
+html[lang="km"] .eyebrow,
+html[lang="km"] [class*="tracking-"] { letter-spacing: 0 !important; }

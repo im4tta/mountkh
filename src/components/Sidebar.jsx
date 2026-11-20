@@ -38,7 +38,7 @@ export default function Sidebar({
   return (
     <>
       {open && <div className="fixed inset-0 z-[1000] bg-[#1d2a23]/50 backdrop-blur-[2px] animate-pop-in" onClick={onClose} />}
-      <aside className={`fixed inset-y-0 left-0 z-[1001] flex w-[350px] max-w-[88vw] flex-col border-r border-[var(--rule)] bg-[var(--card)] shadow-[var(--shadow-lift)] transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-[1001] flex w-[350px] max-w-[88vw] flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] border-r border-[var(--rule)] bg-[var(--card)] shadow-[var(--shadow-lift)] transition-transform duration-300 ease-out ${open ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--rule)] px-5 py-4">
           <div className="flex items-center gap-2.5">
             <MountainGlyph className="h-6 w-6 text-[var(--forest)]" />
