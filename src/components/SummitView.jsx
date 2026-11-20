@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { Compass, Loader2, RotateCcw, X, Play, Pause, Mountain, Footprints } from 'lucide-react';
+import * as SunCalc from 'suncalc';
+import { Water } from 'three/examples/jsm/objects/Water.js';
+import { Compass, Loader2, RotateCcw, X, Play, Pause, Mountain, Footprints, Waves, Sun } from 'lucide-react';
 import { elevationOf, haversine } from '../lib/utils';
 
 const ZOOM = 12;
@@ -44,6 +46,49 @@ function headingLabel(deg) {
   return dirs[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
 }
 
+function sunVector(lat, lon, date = new Date()) {
+  const pos = SunCalc.getPosition(date, lat, lon);
+  const cosAlt = Math.cos(pos.altitude);
+  return new THREE.Vector3(
+    -Math.sin(pos.azimuth) * cosAlt,
+    Math.sin(pos.altitude),
+    Math.cos(pos.azimuth) * cosAlt,
+  );
+}
+
+function contourSegments(heights, level, mPerPixel, exaggeration) {
+  const step = 4;
+  const points = [];
+  const edge = (ax, ay, bx, by, ha, hb) => {
+    if ((ha < level) === (hb < level)) return null;
+    const t = (level - ha) / (hb - ha || 1);
+    return [ax + (bx - ax) * t, ay + (by - ay) * t];
+  };
+  const toWorld = ([px, py]) => new THREE.Vector3(
+    (px - SIZE / 2) * mPerPixel,
+    level * exaggeration + 3,
+    -(py - SIZE / 2) * mPerPixel,
+  );
+  for (let y = 0; y < SIZE - step; y += step) {
+    for (let x = 0; x < SIZE - step; x += step) {
+      const h00 = heights[y * SIZE + x];
+      const h10 = heights[y * SIZE + x + step];
+      const h01 = heights[(y + step) * SIZE + x];
+      const h11 = heights[(y + step) * SIZE + x + step];
+      const crossings = [
+        edge(x, y, x + step, y, h00, h10),
+        edge(x + step, y, x + step, y + step, h10, h11),
+        edge(x + step, y + step, x, y + step, h11, h01),
+        edge(x, y + step, x, y, h01, h00),
+      ].filter(Boolean);
+      for (let i = 0; i + 1 < crossings.length; i += 2) {
+        points.push(toWorld(crossings[i]), toWorld(crossings[i + 1]));
+      }
+    }
+  }
+  return points;
+}
+
 export default function SummitView({ mountain, mountains = [], onJump, onClose, t }) {
   const mountRef = useRef(null);
   const labelsRef = useRef(null);
@@ -55,7 +100,8 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
   const [walking, setWalking] = useState(false);
   const headingRef = useRef(null);
   const compassRef = useRef(null);
-  const walkRefText = useRef(null);
+  const elevationRef = useRef(null);
+  const sunRef = useRef(null);
 
   jumpRef.current = onJump;
   const [peakElev, setPeakElev] = useState(null);
@@ -137,10 +183,66 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         scene.background = new THREE.Color(0x9fc4d8);
         scene.fog = new THREE.Fog(0x9fc4d8, worldWidth * 0.35, worldWidth * 1.1);
         scene.add(terrain);
-        scene.add(new THREE.HemisphereLight(0xdceaff, 0x4d3f2e, 1.25));
+        const ambient = new THREE.HemisphereLight(0xdceaff, 0x4d3f2e, 1.25);
+        scene.add(ambient);
+
+        // Real sun position for the current date/time at the peak.
         const sun = new THREE.DirectionalLight(0xfff3dd, 1.5);
-        sun.position.set(worldWidth * 0.6, worldWidth * 0.8, worldWidth * 0.4);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        const shadowExtent = worldWidth * 0.55;
+        sun.shadow.camera.left = -shadowExtent;
+        sun.shadow.camera.right = shadowExtent;
+        sun.shadow.camera.top = shadowExtent;
+        sun.shadow.camera.bottom = -shadowExtent;
+        sun.shadow.camera.near = 1;
+        sun.shadow.camera.far = worldWidth * 3;
+        sun.shadow.bias = -0.0004;
         scene.add(sun);
+        scene.add(sun.target);
+        sun.target.position.set(peakX, 0, peakZ);
+        terrain.receiveShadow = true;
+        sunRef.current = sun;
+
+        // Real water shader (Three.js Water) at sea level.
+        const normals = new THREE.TextureLoader().load('/textures/waternormals.jpg', () => renderer?.setPixelRatio(Math.min(window.devicePixelRatio, 2)));
+        normals.wrapS = normals.wrapT = THREE.RepeatWrapping;
+        const waterGeo = new THREE.PlaneGeometry(worldWidth, worldWidth);
+        waterGeo.rotateX(-Math.PI / 2);
+        const water = new Water(waterGeo, {
+          textureWidth: 512,
+          textureHeight: 512,
+          waterNormals: normals,
+          sunDirection: sunVector(mountain.lat, mountain.lon),
+          sunColor: 0xffe6bd,
+          waterColor: 0x1f5e6b,
+          distortionScale: 2.4,
+          alpha: 0.86,
+          fog: true,
+        });
+        water.position.y = 0;
+        scene.add(water);
+
+        // Elevation contour at the elevation of the current spot.
+        const levelGroup = new THREE.Group();
+        scene.add(levelGroup);
+        let levelLine = null;
+        let lastLevel = Math.round(elev);
+        const setLevelLine = (level) => {
+          if (levelLine) {
+            levelGroup.remove(levelLine);
+            levelLine.geometry.dispose();
+            levelLine.material.dispose();
+          }
+          const pts = contourSegments(heights, level, mPerPixel, EXAGGERATION);
+          if (!pts.length) { levelLine = null; return; }
+          levelLine = new THREE.LineSegments(
+            new THREE.BufferGeometry().setFromPoints(pts),
+            new THREE.LineBasicMaterial({ color: 0xf2b24c, transparent: true, opacity: 0.9 }),
+          );
+          levelGroup.add(levelLine);
+        };
+        setLevelLine(elev);
 
         const camera = new THREE.PerspectiveCamera(stateRef.current.fov, 1, 1, worldWidth * 4);
         camera.rotation.order = 'YXZ';
@@ -180,6 +282,8 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
 
         renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.domElement.style.cssText = 'width:100%;height:100%;display:block;touch-action:none;cursor:grab';
         mountRef.current.appendChild(renderer.domElement);
 
@@ -212,7 +316,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           moved += Math.abs(dx) + Math.abs(dy);
           if (walkRef.current) { walkRef.current = null; setWalking(false); }
           stateRef.current.yaw -= dx * 0.22;
-          stateRef.current.pitch = Math.max(-70, Math.min(45, stateRef.current.pitch - dy * 0.16));
+          stateRef.current.pitch = Math.max(-80, Math.min(80, stateRef.current.pitch - dy * 0.16));
         };
         const up = (e) => {
           if (!dragging) return;
@@ -247,11 +351,23 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         renderer.domElement.addEventListener('wheel', wheel, { passive: false });
 
         let last = performance.now();
+        let sunTimer = 1;
+        const refreshSun = () => {
+          const sv = sunVector(mountain.lat, mountain.lon);
+          sun.position.copy(sv).multiplyScalar(worldWidth * 0.8);
+          sun.intensity = Math.max(0.08, Math.min(1.8, sv.y * 1.7 + 0.12));
+          ambient.intensity = 0.35 + Math.max(0, sv.y) * 0.95;
+          water.material.uniforms.sunDirection.value.copy(sv);
+        };
+        refreshSun();
         const loop = (now) => {
           if (disposed) return;
           const dt = Math.min((now - last) / 1000, 0.1);
           last = now;
           if (stateRef.current.auto) stateRef.current.yaw += dt * 8;
+          sunTimer += dt;
+          if (sunTimer >= 1) { sunTimer = 0; refreshSun(); }
+          water.material.uniforms.time.value += dt * 0.35;
 
           const walk = walkRef.current;
           if (walk) {
@@ -265,9 +381,18 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
             if (p >= 1) { walkRef.current = null; setWalking(false); }
           }
 
-          camera.rotation.y = stateRef.current.yaw * Math.PI / 180;
-          camera.rotation.x = -stateRef.current.pitch * Math.PI / 180;
+          camera.up.set(0, 1, 0);
+          camera.rotation.set(
+            -stateRef.current.pitch * Math.PI / 180,
+            stateRef.current.yaw * Math.PI / 180,
+            0,
+            'YXZ',
+          );
           renderer.render(scene, camera);
+
+          const groundRound = Math.round(camera.position.y / EXAGGERATION - EYE_HEIGHT);
+          if (Math.abs(groundRound - lastLevel) > 20) { lastLevel = groundRound; setLevelLine(groundRound); }
+          if (elevationRef.current) elevationRef.current.textContent = `${groundRound.toLocaleString()} m`;
 
           const vw = renderer.domElement.clientWidth;
           const vh = renderer.domElement.clientHeight;
@@ -299,6 +424,10 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           walkRef.current = null;
           labelData.forEach(({ el }) => el.remove());
           if (labelsRef.current) labelsRef.current.innerHTML = '';
+          if (levelLine) { levelLine.geometry.dispose(); levelLine.material.dispose(); }
+          water.geometry.dispose();
+          water.material.dispose();
+          normals.dispose();
           geometry.dispose();
           material.dispose();
           texture.dispose();
@@ -353,7 +482,12 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           <div className="pointer-events-auto max-w-[300px] border border-white/15 bg-black/45 px-4 py-3 backdrop-blur-md">
             <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--forest)]">Summit view · 360°</div>
             <h2 className="serif mt-1 text-lg font-bold leading-tight">{mountain?._name}</h2>
-            <p className="mt-1 text-[11px] text-white/65">{peakElev ? `${peakElev.toLocaleString()} m` : '—'} · Drag to look · Click ground to walk · Scroll to zoom</p>
+            <p className="mt-1 text-[11px] text-white/65">Drag to look · Click ground to walk · Scroll to zoom</p>
+            <div className="mt-2 flex items-center gap-3 border-t border-white/15 pt-2 text-[10px] font-bold uppercase tracking-wide text-white/70">
+              <span ref={elevationRef} className="text-[var(--ochre)]">{peakElev ? `${peakElev.toLocaleString()} m` : '—'}</span>
+              <span className="flex items-center gap-1"><Sun className="h-3 w-3" /> Live sun</span>
+              <span className="flex items-center gap-1"><Waves className="h-3 w-3" /> Water</span>
+            </div>
           </div>
           <div className="pointer-events-auto flex items-center gap-2">
             <button onClick={toggleAuto} className="grid h-9 w-9 place-items-center border border-white/15 bg-black/45 hover:bg-white/10" title="Auto rotate" aria-label="Auto rotate">
