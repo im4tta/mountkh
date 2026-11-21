@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import * as SunCalc from 'suncalc';
 import { Water } from 'three/examples/jsm/objects/Water.js';
-import { Sky } from 'three/examples/jsm/objects/Sky.js';
-import { Compass, Loader2, RotateCcw, X, Play, Pause, Mountain, Footprints, Waves, Sun } from 'lucide-react';
+import { createSky, phaseLabel, moonPhaseName, dirFromAzAlt } from '../lib/skyDome';
+import { decodePng, canDecodePng } from '../lib/pngDecode';
+import { Compass, Loader2, RotateCcw, X, Play, Pause, Mountain, Footprints, Sun, Moon, Sunrise, Sunset, MoveVertical, Radio } from 'lucide-react';
 import { elevationOf, haversine } from '../lib/utils';
 
 const ZOOM = 12;
@@ -14,6 +15,27 @@ const MOBILE = typeof window !== 'undefined' && window.matchMedia?.('(pointer: c
 const SEGMENTS = MOBILE ? 256 : 384;
 const EXAGGERATION = 1.35;
 const EYE_HEIGHT = 6;
+const TZ = 'Asia/Phnom_Penh';
+const TZ_OFFSET_MIN = 7 * 60; // Cambodia, Thailand, Laos and Vietnam are all UTC+7, no DST
+const EYE_MIN = 2;
+const EYE_MAX = 3000;
+const eyeFromSlider = (v) => EYE_MIN * (EYE_MAX / EYE_MIN) ** v; // log scale 0..1
+const sliderFromEye = (m) => Math.log(m / EYE_MIN) / Math.log(EYE_MAX / EYE_MIN);
+const localMinutesNow = () => {
+  const d = new Date();
+  return ((d.getUTCHours() * 60 + d.getUTCMinutes() + d.getUTCSeconds() / 60 + TZ_OFFSET_MIN) % 1440 + 1440) % 1440;
+};
+// Date for a given local minute-of-day, on today's local date.
+const dateForLocalMinutes = (min) => {
+  const now = new Date();
+  const local = new Date(now.getTime() + TZ_OFFSET_MIN * 60000);
+  const midnightUtc = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - TZ_OFFSET_MIN * 60000;
+  return new Date(midnightUtc + min * 60000);
+};
+const fmtTime = (date) => (date && !Number.isNaN(date.getTime())
+  ? new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: TZ }).format(date)
+  : '—');
+const fmtClock = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(Math.floor(min % 60)).padStart(2, '0')}`;
 
 const DEM_URL = (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
 const SAT_URL = (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
@@ -86,6 +108,21 @@ function despike(heights) {
   return out;
 }
 
+// Exact DEM bytes: pure-JS PNG decode where possible, WebGL readback otherwise.
+async function loadDem(url) {
+  if (canDecodePng) {
+    try {
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const png = await decodePng(await res.arrayBuffer());
+      if (png.width === TILE && png.height === TILE) return png.data;
+    } catch (err) {
+      console.warn('PNG decode fallback', err);
+    }
+  }
+  return readRawPixels(await loadImage(url));
+}
+
 function sampleHeight(heights, px, py) {
   const x = Math.max(0, Math.min(SIZE - 1.001, px));
   const y = Math.max(0, Math.min(SIZE - 1.001, py));
@@ -103,12 +140,7 @@ function headingLabel(deg) {
 
 function sunVector(lat, lon, date = new Date()) {
   const pos = SunCalc.getPosition(date, lat, lon);
-  const cosAlt = Math.cos(pos.altitude);
-  return new THREE.Vector3(
-    -Math.sin(pos.azimuth) * cosAlt,
-    Math.sin(pos.altitude),
-    Math.cos(pos.azimuth) * cosAlt,
-  );
+  return dirFromAzAlt(pos.azimuth, pos.altitude);
 }
 
 function contourSegments(heights, level, mPerPixel, exaggeration) {
@@ -149,7 +181,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
   const labelsRef = useRef(null);
   const walkRef = useRef(null);
   const jumpRef = useRef(onJump);
-  const stateRef = useRef({ yaw: 0, pitch: -6, fov: 70, auto: false });
+  const stateRef = useRef({ yaw: 0, pitch: -6, fov: 70, auto: false, eye: EYE_HEIGHT, live: true, minutes: localMinutesNow() });
   const [status, setStatus] = useState('loading');
   const [auto, setAuto] = useState(false);
   const [walking, setWalking] = useState(false);
@@ -160,6 +192,11 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
 
   jumpRef.current = onJump;
   const [peakElev, setPeakElev] = useState(null);
+  const [eyeSlider, setEyeSlider] = useState(sliderFromEye(EYE_HEIGHT));
+  const [live, setLive] = useState(true);
+  const [minutes, setMinutes] = useState(localMinutesNow());
+  const [sky, setSky] = useState(null);
+  const [panel, setPanel] = useState(null); // 'time' | null
 
   useEffect(() => {
     if (!mountain || !mountRef.current) return;
@@ -186,8 +223,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           for (let col = 0; col < GRID; col++) {
             const x = Math.round(startX + col);
             const y = Math.round(startY + row);
-            jobs.push(Promise.all([loadImage(DEM_URL(z, x, y)), loadImage(SAT_URL(z, x, y))]).then(([dem, sat]) => {
-              const px = readRawPixels(dem);
+            jobs.push(Promise.all([loadDem(DEM_URL(z, x, y)), loadImage(SAT_URL(z, x, y))]).then(([px, sat]) => {
               for (let ty = 0; ty < TILE; ty++) {
                 const rowOff = (row * TILE + ty) * SIZE + col * TILE;
                 for (let tx = 0; tx < TILE; tx++) {
@@ -251,14 +287,9 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
 
         const scene = new THREE.Scene();
         scene.fog = new THREE.Fog(0xb9d3e3, worldWidth * 0.25, worldWidth * 0.95);
-        const sky = new Sky();
-        sky.scale.setScalar(worldWidth * 3);
-        const skyU = sky.material.uniforms;
-        skyU.turbidity.value = 6;
-        skyU.rayleigh.value = 1.6;
-        skyU.mieCoefficient.value = 0.005;
-        skyU.mieDirectionalG.value = 0.8;
-        scene.add(sky);
+        const skyDome = createSky(worldWidth * 1.4);
+        scene.add(skyDome.group);
+        scene.background = new THREE.Color(0x0a1426);
         scene.add(terrain);
         const ambient = new THREE.HemisphereLight(0xdceaff, 0x5a4a35, 1.25);
         scene.add(ambient);
@@ -277,6 +308,10 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         sun.shadow.bias = -0.0004;
         scene.add(sun);
         scene.add(sun.target);
+        const moonLight = new THREE.DirectionalLight(0xaabbee, 0);
+        moonLight.target.position.set(summitX, 0, summitZ);
+        scene.add(moonLight);
+        scene.add(moonLight.target);
         sun.target.position.set(summitX, 0, summitZ);
         terrain.receiveShadow = true;
         sunRef.current = sun;
@@ -321,9 +356,9 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         };
         setLevelLine(elev);
 
-        const camera = new THREE.PerspectiveCamera(stateRef.current.fov, 1, 2, worldWidth * 4);
+        const camera = new THREE.PerspectiveCamera(stateRef.current.fov, 1, 2, worldWidth * 3);
         camera.rotation.order = 'YXZ';
-        camera.position.set(summitX, elev * EXAGGERATION + EYE_HEIGHT, summitZ);
+        camera.position.set(summitX, elev * EXAGGERATION + stateRef.current.eye, summitZ);
         const groundAt = (x, z) => sampleHeight(heights, SIZE / 2 + x / mPerPixel, SIZE / 2 - z / mPerPixel);
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
@@ -361,9 +396,9 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         renderer = new THREE.WebGLRenderer({ antialias: !MOBILE || window.devicePixelRatio < 2, powerPreference: 'high-performance' });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, MOBILE ? 1.75 : 2));
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 0.55;
+        renderer.toneMappingExposure = 0.9;
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.shadowMap.type = THREE.PCFShadowMap;
         renderer.domElement.style.cssText = 'width:100%;height:100%;display:block;touch-action:none;cursor:grab';
         texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
         mountRef.current.appendChild(renderer.domElement);
@@ -463,18 +498,43 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         const view = { yaw: stateRef.current.yaw, pitch: stateRef.current.pitch };
         let last = performance.now();
         let sunTimer = 1;
+        let lastSkyKey = '';
         const refreshSun = () => {
-          const sv = sunVector(mountain.lat, mountain.lon);
-          sun.position.copy(sv).multiplyScalar(worldWidth * 0.8);
-          sun.intensity = Math.max(0.08, Math.min(1.8, sv.y * 1.7 + 0.12));
-          ambient.intensity = 0.6 + Math.max(0, sv.y) * 1.1;
-          water.material.uniforms.sunDirection.value.copy(sv);
-          // Keep the sky readable at night: never drop the sun far below the horizon.
-          const skySun = sv.clone();
-          if (skySun.y < 0.05) skySun.y = 0.05;
-          skyU.sunPosition.value.copy(skySun.normalize());
-          renderer.toneMappingExposure = 0.7 + Math.max(0, sv.y) * 0.2;
-          scene.fog.color.setHSL(0.57, 0.35, 0.55 + Math.max(0, Math.min(1, sv.y)) * 0.25);
+          const st = stateRef.current;
+          if (st.live) st.minutes = localMinutesNow();
+          const date = dateForLocalMinutes(st.minutes);
+          const info = skyDome.update(date, mountain.lat, mountain.lon);
+          const sv = info.sunDir;
+          sun.position.copy(sv).multiplyScalar(worldWidth * 0.8).add(sun.target.position);
+          sun.color.copy(info.light);
+          sun.intensity = info.sun;
+          sun.visible = info.sun > 0.01;
+          moonLight.position.copy(info.moonDir).multiplyScalar(worldWidth * 0.8).add(moonLight.target.position);
+          moonLight.intensity = info.moonUp ? 0.15 + 0.45 * info.moonFrac * info.night : 0;
+          ambient.color.copy(info.zenith).lerp(new THREE.Color(0xffffff), 0.55);
+          ambient.intensity = info.amb;
+          scene.fog.color.copy(info.horizon);
+          scene.background.copy(info.horizon);
+          renderer.toneMappingExposure = 0.85 + info.night * 0.25;
+          water.material.uniforms.sunDirection.value.copy(info.altDeg > 0 ? sv : info.moonDir);
+          water.material.uniforms.sunColor.value.copy(info.altDeg > 0 ? info.light : new THREE.Color(0x8899bb));
+          const key = `${Math.floor(st.minutes)}|${st.live}`;
+          if (key !== lastSkyKey) {
+            lastSkyKey = key;
+            const times = SunCalc.getTimes(date, mountain.lat, mountain.lon);
+            setSky({
+              time: fmtClock(st.minutes),
+              phase: phaseLabel(info.altDeg, info.rising),
+              isNight: info.altDeg < -6,
+              sunAlt: Math.round(info.altDeg),
+              sunrise: fmtTime(times.sunrise),
+              sunset: fmtTime(times.sunset),
+              moon: moonPhaseName(info.moonPhase),
+              moonPct: Math.round(info.moonFrac * 100),
+              moonUp: info.moonUp,
+            });
+            if (st.live) setMinutes(st.minutes);
+          }
         };
         refreshSun();
         const loop = (now) => {
@@ -489,7 +549,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
             velYaw *= decay; velPitch *= decay;
           }
           sunTimer += dt;
-          if (sunTimer >= 1) { sunTimer = 0; refreshSun(); }
+          if (sunTimer >= 1 || stateRef.current.skyDirty) { sunTimer = 0; stateRef.current.skyDirty = false; refreshSun(); }
           water.material.uniforms.time.value += dt * 0.35;
 
           const walk = walkRef.current;
@@ -504,9 +564,10 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           }
 
           // Keep the eye above the ground (smoothed so slopes don't jitter).
-          const targetY = groundAt(camera.position.x, camera.position.z) * EXAGGERATION + EYE_HEIGHT;
+          const targetY = groundAt(camera.position.x, camera.position.z) * EXAGGERATION + stateRef.current.eye;
           camera.position.y += (targetY - camera.position.y) * Math.min(1, dt * 10);
-          if (camera.position.y < targetY - 1) camera.position.y = targetY - 1;
+          const floorY = groundAt(camera.position.x, camera.position.z) * EXAGGERATION + EYE_MIN;
+          if (camera.position.y < floorY) camera.position.y = floorY;
 
           // Ease view angles and zoom toward their targets for smooth motion.
           const ease = 1 - Math.exp(-dt * 14);
@@ -517,6 +578,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
             camera.updateProjectionMatrix();
           }
           camera.rotation.set(-view.pitch * Math.PI / 180, view.yaw * Math.PI / 180, 0, 'YXZ');
+          skyDome.followCamera(camera);
           renderer.render(scene, camera);
 
           const groundRound = Math.round(groundAt(camera.position.x, camera.position.z) + elevOffset);
@@ -535,7 +597,8 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
             el.style.transform = `translate(-50%, -50%) translate(${(projected.x * 0.5 + 0.5) * vw}px, ${(-projected.y * 0.5 + 0.5) * vh}px)`;
           });
 
-          const h = Math.round(((view.yaw % 360) + 360) % 360);
+          // Camera yaw is counter-clockwise; compass heading is clockwise from north.
+          const h = Math.round(((-view.yaw % 360) + 360) % 360) % 360;
           if (headingRef.current) headingRef.current.textContent = `${headingLabel(h)} · ${h}°`;
           if (compassRef.current) compassRef.current.style.transform = `rotate(${-h}deg)`;
           frame = requestAnimationFrame(loop);
@@ -557,8 +620,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           if (levelLine) { levelLine.geometry.dispose(); levelLine.material.dispose(); }
           water.geometry.dispose();
           water.material.dispose();
-          sky.geometry.dispose();
-          sky.material.dispose();
+          skyDome.dispose();
           normals.dispose();
           geometry.dispose();
           material.dispose();
@@ -584,7 +646,28 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
     stateRef.current.yaw = 0;
     stateRef.current.pitch = -6;
     stateRef.current.fov = 70;
+    stateRef.current.eye = EYE_HEIGHT;
+    setEyeSlider(sliderFromEye(EYE_HEIGHT));
   };
+  const onEye = (v) => {
+    setEyeSlider(v);
+    stateRef.current.eye = eyeFromSlider(v);
+  };
+  const onTime = (min) => {
+    setLive(false);
+    setMinutes(min);
+    stateRef.current.live = false;
+    stateRef.current.minutes = min;
+    stateRef.current.skyDirty = true;
+  };
+  const goLive = () => {
+    setLive(true);
+    stateRef.current.live = true;
+    stateRef.current.skyDirty = true;
+  };
+  const eyeM = eyeFromSlider(eyeSlider);
+  const eyeLabel = eyeM >= 1000 ? `${(eyeM / 1000).toFixed(1)} km` : `${Math.round(eyeM)} m`;
+  const glass = 'border border-white/15 bg-black/45 backdrop-blur-md';
 
   return (
     <div className="fixed inset-0 z-[1100] bg-[#0d1512] text-white">
@@ -611,29 +694,74 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
 
       <div className="pointer-events-none absolute inset-0 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6">
         <div className="flex items-start justify-between gap-3">
-          <div className="pointer-events-auto min-w-0 max-w-[300px] border border-white/15 bg-black/45 px-4 py-3 backdrop-blur-md">
-            <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--forest)]">Summit view · 360°</div>
-            <h2 className="serif mt-1 text-lg font-bold leading-tight">{mountain?._name}</h2>
-            <p className="mt-1 hidden text-[11px] text-white/65 sm:block">Drag to look · Click ground to walk · Scroll to zoom</p>
-            <div className="mt-2 flex items-center gap-3 border-t border-white/15 pt-2 text-[10px] font-bold uppercase tracking-wide text-white/70">
-              <span ref={elevationRef} className="text-[var(--ochre)]">{peakElev ? `${peakElev.toLocaleString()} m` : '—'}</span>
-              <span className="flex items-center gap-1"><Sun className="h-3 w-3" /> Live sun</span>
-              <span className="flex items-center gap-1"><Waves className="h-3 w-3" /> Water</span>
+          <div className={`pointer-events-auto min-w-0 max-w-[290px] rounded-xl px-4 py-3 ${glass}`}>
+            <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#8fc7a9]">Summit view · 360°</div>
+            <h2 className="serif mt-1 truncate text-lg font-bold leading-tight">{mountain?._name}</h2>
+            <div className="mt-2 flex items-baseline gap-2 border-t border-white/15 pt-2">
+              <span ref={elevationRef} className="text-base font-bold text-[#e3c07a]">{peakElev ? `${peakElev.toLocaleString()} m` : '—'}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-white/55">ground · eye +{eyeLabel}</span>
             </div>
+            <button
+              onClick={() => setPanel((v) => (v === 'time' ? null : 'time'))}
+              className="mt-2 flex w-full items-center gap-2 rounded-lg bg-white/5 px-2.5 py-2 text-left hover:bg-white/10"
+              aria-expanded={panel === 'time'}
+            >
+              {sky?.isNight ? <Moon className="h-4 w-4 shrink-0 text-[#cfd8ff]" /> : <Sun className="h-4 w-4 shrink-0 text-[#ffd27a]" />}
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold tabular-nums">{sky?.time ?? '--:--'} <span className="text-[10px] font-semibold text-white/50">ICT</span></span>
+                <span className="block truncate text-[10px] text-white/65">{sky?.phase ?? 'Loading sky…'}</span>
+              </span>
+              {live && <span className="flex items-center gap-1 rounded-full bg-[#e5533d]/90 px-1.5 py-0.5 text-[9px] font-bold uppercase"><Radio className="h-2.5 w-2.5" />Live</span>}
+            </button>
           </div>
-          <div className="pointer-events-auto flex shrink-0 flex-col items-center gap-2 sm:flex-row">
-            <button onClick={toggleAuto} className="grid h-11 w-11 place-items-center border border-white/15 bg-black/45 hover:bg-white/10" title="Auto rotate" aria-label="Auto rotate">
+          <div className="pointer-events-auto flex shrink-0 flex-col items-center gap-2">
+            <button onClick={onClose} className={`grid h-11 w-11 place-items-center rounded-full ${glass} hover:bg-white/10`} title="Close" aria-label="Close"><X className="h-4 w-4" /></button>
+            <button onClick={toggleAuto} className={`grid h-11 w-11 place-items-center rounded-full ${glass} hover:bg-white/10`} title="Auto rotate" aria-label="Auto rotate" aria-pressed={auto}>
               {auto ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>
-            <button onClick={reset} className="grid h-11 w-11 place-items-center border border-white/15 bg-black/45 hover:bg-white/10" title="Reset view" aria-label="Reset view"><RotateCcw className="h-4 w-4" /></button>
-            <button onClick={onClose} className="grid h-11 w-11 place-items-center border border-white/15 bg-black/45 hover:bg-white/10" title="Close" aria-label="Close"><X className="h-4 w-4" /></button>
+            <button onClick={reset} className={`grid h-11 w-11 place-items-center rounded-full ${glass} hover:bg-white/10`} title="Reset view" aria-label="Reset view"><RotateCcw className="h-4 w-4" /></button>
           </div>
         </div>
 
-        <div className="pointer-events-auto absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 flex -translate-x-1/2 items-center gap-3 border border-white/15 bg-black/45 px-4 py-2 backdrop-blur-md">
-          <Compass ref={compassRef} className="h-5 w-5 text-[var(--rust)]" />
+        {panel === 'time' && sky && (
+          <div className={`pointer-events-auto absolute left-3 right-[4.75rem] top-[calc(max(0.75rem,env(safe-area-inset-top))+11.5rem)] max-w-[360px] rounded-xl p-4 sm:left-6 ${glass} animate-pop-in`}>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/60">Sun & moon · UTC+7</span>
+              <button onClick={goLive} disabled={live} className="rounded-full border border-white/20 px-2.5 py-1 text-[10px] font-bold uppercase disabled:border-[#e5533d] disabled:text-[#ff8a75]">{live ? 'Live' : 'Live now'}</button>
+            </div>
+            <input
+              type="range" min="0" max="1439" step="5"
+              value={Math.round(minutes)}
+              onChange={(e) => onTime(Number(e.target.value))}
+              aria-label="Time of day"
+              className="summit-time mt-4 w-full"
+            />
+            <div className="mt-1 flex justify-between text-[9px] font-semibold text-white/45"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+            <div className="mt-3 grid grid-cols-3 gap-1.5 text-center text-[10px]">
+              <div className="rounded-lg bg-white/5 py-2"><Sunrise className="mx-auto h-4 w-4 text-[#ffd27a]" /><div className="mt-1 font-bold tabular-nums">{sky.sunrise}</div><div className="text-white/50">Sunrise</div></div>
+              <div className="rounded-lg bg-white/5 py-2"><Sunset className="mx-auto h-4 w-4 text-[#ff9a6a]" /><div className="mt-1 font-bold tabular-nums">{sky.sunset}</div><div className="text-white/50">Sunset</div></div>
+              <div className="rounded-lg bg-white/5 py-2"><Moon className="mx-auto h-4 w-4 text-[#cfd8ff]" /><div className="mt-1 font-bold">{sky.moonPct}%</div><div className="px-1 leading-tight text-white/50">{sky.moon}</div></div>
+            </div>
+            <p className="mt-2 text-[10px] text-white/50">Sun altitude {sky.sunAlt}° · moon {sky.moonUp ? 'above' : 'below'} the horizon</p>
+          </div>
+        )}
+
+        <div className={`pointer-events-auto absolute right-3 top-1/2 flex -translate-y-1/2 flex-col items-center gap-2 rounded-full px-2 py-3 sm:right-6 ${glass}`}>
+          <MoveVertical className="h-4 w-4 text-white/70" />
+          <input
+            type="range" min="0" max="1" step="0.001"
+            value={eyeSlider}
+            onChange={(e) => onEye(Number(e.target.value))}
+            aria-label="Eye height above ground"
+            className="summit-eye"
+          />
+          <span className="w-12 text-center text-[10px] font-bold tabular-nums">{eyeLabel}</span>
+        </div>
+
+        <div className={`pointer-events-auto absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap rounded-full px-4 py-2 ${glass}`}>
+          <Compass ref={compassRef} className="h-5 w-5 text-[#e69167]" />
           <span ref={headingRef} className="serif text-sm font-bold tracking-wider">N · 0°</span>
-          {walking && <span className="flex items-center gap-1 border-l border-white/20 pl-3 text-[10px] font-bold uppercase tracking-wide text-[var(--forest)]"><Footprints className="h-3.5 w-3.5" /> Walking…</span>}
+          {walking && <span className="flex items-center gap-1 border-l border-white/20 pl-3 text-[10px] font-bold uppercase tracking-wide text-[#8fc7a9]"><Footprints className="h-3.5 w-3.5" /> Walking…</span>}
         </div>
 
         <div ref={labelsRef} className="pointer-events-none absolute inset-0 overflow-hidden" />
