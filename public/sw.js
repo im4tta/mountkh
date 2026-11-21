@@ -1,4 +1,4 @@
-const VERSION = 'mountkh-v7'
+const VERSION = 'mountkh-v8'
 const SHELL_CACHE = `shell-${VERSION}`
 const TILE_CACHE = `tiles-${VERSION}`
 const SHELL_URLS = ['/', '/index.html', '/manifest.json', '/mountains-kh.json', '/favicon.ico']

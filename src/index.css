@@ -558,3 +558,20 @@ body {
 /* Letter-spacing splits Khmer clusters apart; keep it for Latin only */
 html[lang="km"] .eyebrow,
 html[lang="km"] [class*="tracking-"] { letter-spacing: 0 !important; }
+
+/* Summit view sliders */
+.summit-time, .summit-eye { -webkit-appearance: none; appearance: none; background: transparent; touch-action: none; }
+.summit-time { height: 28px; }
+.summit-time::-webkit-slider-runnable-track {
+  height: 8px; border-radius: 99px;
+  background: linear-gradient(90deg, #0a1426 0%, #1d2f5c 20%, #f6a56a 26%, #7fb2e5 40%, #7fb2e5 60%, #f6a56a 74%, #1d2f5c 80%, #0a1426 100%);
+}
+.summit-time::-moz-range-track { height: 8px; border-radius: 99px; background: linear-gradient(90deg, #0a1426 0%, #1d2f5c 20%, #f6a56a 26%, #7fb2e5 40%, #7fb2e5 60%, #f6a56a 74%, #1d2f5c 80%, #0a1426 100%); }
+.summit-time::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -7px; border-radius: 50%; background: #fff; border: 3px solid #e69167; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+.summit-time::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid #e69167; }
+.summit-eye { writing-mode: vertical-lr; direction: rtl; width: 28px; height: 180px; }
+.summit-eye::-webkit-slider-runnable-track { width: 6px; border-radius: 99px; background: linear-gradient(0deg, #8fc7a9, #7fb2e5); }
+.summit-eye::-moz-range-track { width: 6px; border-radius: 99px; background: linear-gradient(0deg, #8fc7a9, #7fb2e5); }
+.summit-eye::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-left: -8px; border-radius: 50%; background: #fff; border: 3px solid #8fc7a9; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+.summit-eye::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid #8fc7a9; }
+@media (max-height: 640px) { .summit-eye { height: 120px; } }
