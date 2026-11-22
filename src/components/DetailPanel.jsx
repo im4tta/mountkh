@@ -11,6 +11,7 @@ import {
 } from '../lib/utils';
 import { mountainMarkerSvg } from '../lib/iconmcp';
 import MountainGlyph from './MountainGlyph';
+import ElevationSources from './ElevationSources';
 const ExportCard = lazy(() => import('./ExportCard'));
 
 const pinIcon = L.divIcon({
@@ -145,6 +146,8 @@ export default function DetailPanel({
             <MountainGlyph className="h-16 w-16 text-[var(--forest)] opacity-80" />
           </div>
           <div className="elev-bar mt-3"><div className="elev-fill" style={{ width: `${elevationPercent(elev)}%` }} /></div>
+
+          <ElevationSources mountain={mountain} listed={elev} t={t} />
 
           <dl className="mt-7">
             <Fact label={t('coordinates')} value={coordText} mono />

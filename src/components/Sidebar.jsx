@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, Info, Users, Smartphone, Download, Map as MapIcon, Globe2 } from 'lucide-react';
 import { COUNTRY_META } from '../lib/utils';
 import MountainGlyph from './MountainGlyph';
+import { ELEVATION_CATALOG } from '../lib/elevation';
 
 function Section({ title, children }) {
   return (
@@ -113,6 +114,29 @@ export default function Sidebar({
           <Section title={t('sidebarData')}>
             <p className="text-[11px] leading-relaxed text-[var(--muted)]">{t('dataWarning')}</p>
             <a href="https://www.geonames.org" target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-[11px] font-semibold text-[var(--forest)] underline underline-offset-2">{t('geoNames')} ↗</a>
+          </Section>
+
+          <Section title={t('sidebarElevData')}>
+            <p className="mb-3 text-[11px] leading-relaxed text-[var(--muted)]">{t('elevDataIntro')}</p>
+            <ul className="space-y-1">
+              {ELEVATION_CATALOG.map((src) => {
+                const tone = src.status === 'used' ? 'text-[var(--forest)] bg-[var(--forest-soft)]'
+                  : src.status === 'experimental' ? 'text-[var(--ochre)] bg-[var(--ochre-soft)]'
+                  : 'text-[var(--muted)] bg-[var(--paper-2)]';
+                const label = { used: t('elevStatusUsed'), regional: t('elevStatusRegional'), experimental: t('elevStatusExperimental'), link: t('elevStatusLink') }[src.status];
+                return (
+                  <li key={src.id}>
+                    <a href={src.url} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-[var(--paper-2)]">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[12px] font-semibold text-[var(--ink)]">{src.name} <span className="font-normal text-[var(--muted)]">· {src.org}</span></div>
+                        <div className="text-[10px] leading-snug text-[var(--muted)]">{src.res} · {src.note}</div>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${tone}`}>{label}</span>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
           </Section>
 
           <Section title={t('sidebarContribute')}>
