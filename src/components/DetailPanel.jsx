@@ -12,6 +12,8 @@ import {
 import { mountainMarkerSvg } from '../lib/iconmcp';
 import MountainGlyph from './MountainGlyph';
 import ElevationSources from './ElevationSources';
+import ElevationGauge from './ElevationGauge';
+import { provinceLabel } from '../lib/provinces';
 const ExportCard = lazy(() => import('./ExportCard'));
 
 const pinIcon = L.divIcon({
@@ -133,19 +135,9 @@ export default function DetailPanel({
           </div>
 
           <h2 className="serif mt-3 text-[clamp(1.9rem,5vw,2.6rem)] font-bold leading-[1.08] tracking-tight text-[var(--ink)]">{mountain._name}</h2>
-          <p className="mt-2 flex items-center gap-1.5 text-[12px] text-[var(--muted)]"><MapIcon className="h-3.5 w-3.5" /> {mountain.province || '—'}</p>
+          <p className="mt-2 flex items-center gap-1.5 text-[12px] text-[var(--muted)]"><MapIcon className="h-3.5 w-3.5" /> {provinceLabel(mountain.province, lang) || '—'}</p>
 
-          <div className="mt-7 flex items-end justify-between border-y border-[var(--ink)] py-4">
-            <div>
-              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">{t('elevation')}</div>
-              <div className="mt-1 flex items-baseline gap-1">
-                <span className="serif text-5xl font-bold leading-none text-[var(--rust)]">{elev ? elev.toLocaleString() : '—'}</span>
-                <span className="serif text-lg italic text-[var(--muted)]">{elev ? 'm' : ''}</span>
-              </div>
-            </div>
-            <MountainGlyph className="h-16 w-16 text-[var(--forest)] opacity-80" />
-          </div>
-          <div className="elev-bar mt-3"><div className="elev-fill" style={{ width: `${elevationPercent(elev)}%` }} /></div>
+          <ElevationGauge elev={elev} t={t} />
 
           <ElevationSources mountain={mountain} listed={elev} t={t} />
 

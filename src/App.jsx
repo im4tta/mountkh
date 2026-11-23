@@ -6,6 +6,7 @@ import Header from './components/Header';
 import FilterPanel from './components/FilterPanel';
 import ListView from './components/ListView';
 import MapView from './components/MapView';
+import ProvincesView from './components/ProvincesView';
 
 const TerrainView = lazy(() => import('./components/TerrainView'));
 const SummitView = lazy(() => import('./components/SummitView'));
@@ -183,7 +184,7 @@ export default function App() {
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
   return (
-    <div className="flex h-full flex-col bg-[var(--paper)]">
+    <div className="app-root flex h-full flex-col">
       {loading && <Splash visible={loading} />}
 
       <Header
@@ -210,7 +211,12 @@ export default function App() {
         onClear={clearFilters} filterCount={filterCount}
       />
 
-      <StatsBar total={mountainsRaw.length} showing={filtered.length} search={search.trim()} provider={provider} t={t} />
+      {view !== 'provinces' && (
+        <StatsBar
+          total={mountainsRaw.length} showing={filtered.length} search={search.trim()} provider={provider}
+          province={province} onClearProvince={() => setProvince('')} lang={lang} t={t}
+        />
+      )}
 
       <main className="app-main relative min-h-0 flex-1">
         {view === 'list' ? (
@@ -221,7 +227,12 @@ export default function App() {
             search={search} onSearch={setSearch}
             activeTab={activeTab} onTabChange={setActiveTab}
             lang={lang} t={t} onClear={clearFilters}
-            onExploreMap={() => setView('map')} showIntro={showIntro}
+            onExploreMap={() => setView('map')} showIntro={showIntro} focus={!!province}
+          />
+        ) : view === 'provinces' ? (
+          <ProvincesView
+            mountains={mountainsRaw} lang={lang} t={t} activeProvince={province}
+            onPick={(p) => { setProvince(p); setActiveTab('all'); setView('list'); }}
           />
         ) : view === 'map' ? (
           <MapView
