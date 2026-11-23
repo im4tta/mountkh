@@ -52,8 +52,20 @@ function Featured({ items, t, onSelect }) {
 export default function ExplorerHome({
   mountains, featured, total, highest, withElev, favorites,
   search, onSearch, activeTab, onTabChange,
-  onToggleFav, onSelect, lang, t, onClear, onExploreMap,
+  onToggleFav, onSelect, lang, t, onClear, onExploreMap, focus,
 }) {
+  if (focus) {
+    return (
+      <div className="skin-explorer h-full bg-[var(--paper)]">
+        <div className="mx-auto flex h-full max-w-[980px] flex-col px-4 pb-3 pt-3 sm:px-8">
+          <Register
+            mountains={mountains} favorites={favorites} onToggleFav={onToggleFav}
+            onSelect={onSelect} lang={lang} t={t} onClear={onClear} skin="explorer"
+          />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="skin-explorer scroll-area h-full overflow-y-auto bg-[var(--paper)]">
       <div className="mx-auto grid max-w-[1400px] gap-8 px-4 pb-6 pt-6 sm:px-8 sm:pt-10 lg:grid-cols-[1.1fr_.9fr] lg:items-center">

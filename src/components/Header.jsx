@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Menu, Map as MapIcon, List, Search, Moon, Sun, Shuffle, SlidersHorizontal, X } from 'lucide-react';
+import { Menu, Map as MapIcon, List, Search, Moon, Sun, Shuffle, SlidersHorizontal, X, Home, MapPin, Heart, LayoutGrid } from 'lucide-react';
 import MountainGlyph from './MountainGlyph';
 
 const TABS = [
@@ -22,6 +22,7 @@ export default function Header({
   const [mobileSearch, setMobileSearch] = useState(false);
   const viewOptions = [
     ['list', t('listView'), <List className="h-4 w-4" />],
+    ['provinces', t('navProvinces'), <LayoutGrid className="h-4 w-4" />],
     ['map', t('mapView'), <MapIcon className="h-4 w-4" />],
     ['terrain', t('terrainView') || '3D', <MountainGlyph name="mountain" className="h-4 w-4" />],
   ];
@@ -84,7 +85,7 @@ export default function Header({
 
         <nav className="ml-auto flex shrink-0 items-center gap-0.5 sm:ml-0">
           <button onClick={() => { setMobileSearch(true); setTimeout(() => searchRef.current?.focus(), 0); }} className="icon-btn sm:hidden" aria-label={t('searchPlaceholder')} data-active={search ? 'true' : undefined}><Search className="h-5 w-5" /></button>
-          <button onClick={onShuffle} className="icon-btn hidden md:inline-flex" title={t('random')} aria-label={t('random')}><Shuffle className="h-4 w-4" /></button>
+          <button onClick={onShuffle} className="icon-btn" title={t('random')} aria-label={t('random')}><Shuffle className="h-4 w-4" /></button>
           <div className="hidden items-center rounded-sm border border-[var(--rule)] p-0.5 md:flex" role="group" aria-label={t('viewLabel') || 'View'}>
             {viewOptions.map(([key, label, icon]) => (
               <button
@@ -107,16 +108,16 @@ export default function Header({
 
       <div className="border-t border-[var(--rule)]">
         <div className="mx-auto flex max-w-[1400px] items-end gap-3 pl-4 pr-2 sm:px-6">
-          <nav className="no-scrollbar flex min-w-0 flex-1 items-end gap-5 sm:gap-4 overflow-x-auto" aria-label={t('filter')}>
+          <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto py-2 sm:items-end sm:gap-4 sm:py-0" aria-label={t('filter')}>
             {TABS.map((tab) => {
               const active = activeTab === tab.key;
               return (
                 <button
                   key={tab.key}
                   onClick={() => onTabChange(tab.key)}
-                  className={`shrink-0 border-b-2 py-3 text-[13px] sm:py-2 sm:text-[11px] font-semibold uppercase tracking-wide transition-colors ${active
-                    ? 'border-[var(--rust)] text-[var(--ink)]'
-                    : 'border-transparent text-[var(--muted)] hover:text-[var(--ink)]'
+                  className={`shrink-0 rounded-full px-4 text-[13px] font-semibold transition-colors min-h-9 sm:min-h-0 sm:rounded-none sm:border-b-2 sm:bg-transparent sm:px-0 sm:py-2 sm:text-[11px] sm:uppercase sm:tracking-wide ${active
+                    ? 'bg-[var(--forest)] text-[var(--paper)] sm:border-[var(--rust)] sm:text-[var(--ink)]'
+                    : 'bg-[var(--paper-2)] text-[var(--muted)] hover:text-[var(--ink)] sm:border-transparent'
                   }`}
                   aria-pressed={active}
                 >
@@ -144,22 +145,19 @@ export default function Header({
         </div>
       </div>
     </header>
-    <nav className="fixed inset-x-0 bottom-0 z-[900] flex border-t border-[var(--rule)] bg-[color-mix(in_srgb,var(--card)_96%,transparent)] pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden" aria-label={t('viewLabel') || 'View'}>
-      {viewOptions.map(([key, label, icon]) => (
-        <button
-          key={key}
-          onClick={() => onViewChange(key)}
-          aria-pressed={view === key}
-          className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors ${view === key ? 'text-[var(--forest)]' : 'text-[var(--muted)]'}`}
-        >
-          <span className={`grid h-7 w-12 place-items-center rounded-full ${view === key ? 'bg-[var(--forest-soft)]' : ''}`}>{icon}</span>
-          {label}
+    <nav className="tabbar md:hidden" aria-label={t('viewLabel') || 'View'}>
+      {[
+        ['home', t('navHome'), <Home className="h-[22px] w-[22px]" />, view === 'list' && activeTab !== 'favorites', () => { if (activeTab === 'favorites') onTabChange('all'); onViewChange('list'); }],
+        ['provinces', t('navProvinces'), <MapPin className="h-[22px] w-[22px]" />, view === 'provinces', () => onViewChange('provinces')],
+        ['map', t('mapView'), <MapIcon className="h-[22px] w-[22px]" />, view === 'map', () => onViewChange('map')],
+        ['terrain', t('terrainView') || '3D', <MountainGlyph name="mountain" className="h-[22px] w-[22px]" />, view === 'terrain', () => onViewChange('terrain')],
+        ['saved', t('tabFavorites'), <Heart className="h-[22px] w-[22px]" />, view === 'list' && activeTab === 'favorites', () => { onTabChange('favorites'); onViewChange('list'); }],
+      ].map(([key, label, icon, active, go]) => (
+        <button key={key} onClick={go} aria-current={active ? 'page' : undefined} className="tabbar-item">
+          <span className="ic">{icon}</span>
+          <span className="max-w-full truncate px-0.5">{label}</span>
         </button>
       ))}
-      <button onClick={onShuffle} className="flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold text-[var(--muted)]">
-        <span className="grid h-7 w-12 place-items-center"><Shuffle className="h-4 w-4" /></span>
-        {t('random')}
-      </button>
     </nav>
     </>
   );
