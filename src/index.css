@@ -683,3 +683,10 @@ html[lang="km"] [class*="tracking-"] { letter-spacing: 0 !important; }
   transition: transform 160ms ease, background-color 160ms ease;
 }
 .province-tile:active { transform: scale(0.96); background: color-mix(in srgb, var(--card) 80%, transparent); }
+
+/* Summit view: point-and-identify */
+.summit-peak-label.is-dot { padding: 0; width: 10px; height: 10px; min-width: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.8); border-color: rgba(255, 255, 255, 0.95); }
+.summit-peak-label.is-dot > * { display: none; }
+.summit-peak-label.is-target { background: var(--forest); border-color: #fff; color: #0a1230; z-index: 5; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.22); }
+.summit-peak-label.is-target small { color: #0a1230; }
+.reticle-ring { stroke-dashoffset: calc(100 - var(--p, 0) * 100); }
