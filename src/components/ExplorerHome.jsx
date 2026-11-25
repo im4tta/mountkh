@@ -52,7 +52,7 @@ function Featured({ items, t, onSelect }) {
 export default function ExplorerHome({
   mountains, featured, total, highest, withElev, favorites,
   search, onSearch, activeTab, onTabChange,
-  onToggleFav, onSelect, lang, t, onClear, onExploreMap, focus,
+  onToggleFav, onSelect, lang, t, onClear, onExploreMap, focus, distances,
 }) {
   if (focus) {
     return (
@@ -60,7 +60,7 @@ export default function ExplorerHome({
         <div className="mx-auto flex h-full max-w-[980px] flex-col px-4 pb-3 pt-3 sm:px-8">
           <Register
             mountains={mountains} favorites={favorites} onToggleFav={onToggleFav}
-            onSelect={onSelect} lang={lang} t={t} onClear={onClear} skin="explorer"
+            onSelect={onSelect} lang={lang} t={t} onClear={onClear} skin="explorer" distances={distances}
           />
         </div>
       </div>
@@ -105,7 +105,7 @@ export default function ExplorerHome({
       <div className="mx-auto flex h-[min(640px,80dvh)] max-w-[980px] flex-col px-4 pb-24 md:pb-10 sm:px-8">
         <Register
           mountains={mountains} favorites={favorites} onToggleFav={onToggleFav}
-          onSelect={onSelect} lang={lang} t={t} onClear={onClear} skin="explorer"
+          onSelect={onSelect} lang={lang} t={t} onClear={onClear} skin="explorer" distances={distances}
         />
       </div>
     </div>

@@ -2,9 +2,9 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Heart, MapPin, Compass, SearchX, ArrowUp } from 'lucide-react';
 import MountainGlyph from './MountainGlyph';
-import { FCODE_META, COUNTRY_META, elevationOf, elevationPercent } from '../lib/utils';
+import { FCODE_META, COUNTRY_META, elevationOf, elevationPercent, formatDistance } from '../lib/utils';
 
-const Row = memo(function Row({ mountain: m, index, isFav, onToggleFav, onSelect, lang, t, skin }) {
+const Row = memo(function Row({ mountain: m, index, isFav, onToggleFav, onSelect, lang, t, skin, dist }) {
   const meta = FCODE_META[m.fcode] || FCODE_META.PT;
   const country = COUNTRY_META[m.country] || COUNTRY_META.KH;
   const elev = elevationOf(m);
@@ -29,6 +29,7 @@ const Row = memo(function Row({ mountain: m, index, isFav, onToggleFav, onSelect
           <span className="chip px-1.5 py-0 text-[9px]">{label}</span>
           <span className="shrink-0">{country.flag}</span>
           {m.province && <span className="flex min-w-0 items-center gap-1 truncate"><MapPin className="h-3 w-3 shrink-0" />{m.province}</span>}
+          {dist != null && <span className="shrink-0 font-bold tabular-nums text-[var(--rust)]">{formatDistance(dist)}</span>}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-3 sm:gap-5">
@@ -64,7 +65,7 @@ function EmptyState({ t, onClear }) {
 
 export default function Register({
   mountains, favorites, onToggleFav, onSelect, lang, t, onClear,
-  skin = 'atlas', scrollRef: externalRef, compact = false,
+  skin = 'atlas', scrollRef: externalRef, compact = false, distances = null,
 }) {
   const localRef = useRef(null);
   const scrollRef = externalRef || localRef;
@@ -89,7 +90,7 @@ export default function Register({
         <div className="mx-auto max-w-[980px] px-5 pb-8 sm:px-8">
           <div className="sticky top-0 z-10 flex items-end justify-between border-b-2 border-[var(--ink)] bg-[color-mix(in_srgb,var(--paper)_94%,transparent)] py-3 backdrop-blur-md">
             <div>
-              <p className="eyebrow">Index</p>
+              <p className="eyebrow">{t('registerIndex')}</p>
               <h2 className="serif mt-0.5 text-xl font-bold tracking-tight sm:text-2xl">{t('allFeatures')}</h2>
             </div>
             <span className="serif text-sm italic text-[var(--muted)]">{mountains.length.toLocaleString()} {t('statsFeatures')}</span>
@@ -111,18 +112,18 @@ export default function Register({
                       mountain={m} index={virtualRow.index}
                       isFav={favorites.includes(String(m.id))}
                       onToggleFav={onToggleFav} onSelect={onSelect}
-                      lang={lang} t={t} skin={skin}
+                      lang={lang} t={t} skin={skin} dist={distances ? distances[m.id] : null}
                     />
                   </div>
                 );
               })}
             </div>
           )}
-          {mountains.length > 0 && <p className="mt-6 text-center text-[10px] italic text-[var(--muted)]">— End of register —</p>}
+          {mountains.length > 0 && <p className="mt-6 text-center text-[10px] italic text-[var(--muted)]">{t('registerEnd')}</p>}
         </div>
       </div>
       {scrolled && (
-        <button onClick={backToTop} className="btn btn-solid absolute bottom-5 right-5 z-30 h-10 w-10 rounded-full p-0 shadow-[var(--shadow-lift)]" aria-label="Back to top">
+        <button onClick={backToTop} className="btn btn-solid absolute bottom-5 right-5 z-30 h-10 w-10 rounded-full p-0 shadow-[var(--shadow-lift)]" aria-label={t('backToTop')}>
           <ArrowUp className="h-4 w-4" />
         </button>
       )}

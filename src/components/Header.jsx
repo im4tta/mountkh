@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Menu, Map as MapIcon, List, Search, Moon, Sun, Shuffle, SlidersHorizontal, X, Home, MapPin, Heart, LayoutGrid } from 'lucide-react';
+import { Menu, Map as MapIcon, List, Search, Moon, Sun, Shuffle, SlidersHorizontal, X, Home, MapPin, Heart, LayoutGrid, LocateFixed, Loader2 } from 'lucide-react';
 import MountainGlyph from './MountainGlyph';
 
 const TABS = [
@@ -16,7 +16,7 @@ export default function Header({
   view, onViewChange,
   theme, onToggleTheme, lang, onToggleLang, onMenu, onHome,
   sort, onSortChange, filtersOpen, onToggleFilters,
-  filterCount, onClearFilters, onShuffle, t,
+  filterCount, onClearFilters, onShuffle, nearBusy, onToggleNear, t,
 }) {
   const searchRef = useRef(null);
   const [mobileSearch, setMobileSearch] = useState(false);
@@ -109,6 +109,15 @@ export default function Header({
       <div className="border-t border-[var(--rule)]">
         <div className="mx-auto flex max-w-[1400px] items-end gap-3 pl-4 pr-2 sm:px-6">
           <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto py-2 sm:items-end sm:gap-4 sm:py-0" aria-label={t('filter')}>
+            <button
+              onClick={onToggleNear}
+              aria-pressed={sort === 'near'}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors min-h-9 sm:min-h-0 sm:rounded-none sm:border-b-2 sm:bg-transparent sm:px-0 sm:py-2 sm:text-[11px] sm:uppercase sm:tracking-wide ${sort === 'near'
+                ? 'bg-[var(--rust)] text-[var(--paper)] sm:border-[var(--rust)] sm:text-[var(--ink)]'
+                : 'bg-[var(--paper-2)] text-[var(--muted)] hover:text-[var(--ink)] sm:border-transparent'}`}
+            >
+              {nearBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LocateFixed className="h-3.5 w-3.5" />}{t('nearMe')}
+            </button>
             {TABS.map((tab) => {
               const active = activeTab === tab.key;
               return (
@@ -131,6 +140,7 @@ export default function Header({
               <option value="elev-desc">{t('sortElevDesc')}</option>
               <option value="name">{t('sortName')}</option>
               <option value="elev-asc">{t('sortElevAsc')}</option>
+              <option value="near">{t('sortNear')}</option>
             </select>
             <button
               onClick={onToggleFilters}

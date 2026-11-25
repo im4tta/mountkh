@@ -70,6 +70,12 @@ export function getMountainNames(m) {
   return Array.from(names);
 }
 
+export function formatDistance(m) {
+  if (m == null || !Number.isFinite(m)) return '';
+  if (m < 1000) return `${Math.round(m)} m`;
+  return m < 100000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 1000)} km`;
+}
+
 export function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
