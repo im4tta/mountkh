@@ -4,7 +4,10 @@ import * as SunCalc from 'suncalc';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { createSky, phaseLabel, moonPhaseName, dirFromAzAlt } from '../lib/skyDome';
 import { decodePng, canDecodePng } from '../lib/pngDecode';
-import { Compass, Loader2, RotateCcw, X, Play, Pause, Mountain, Footprints, Sun, Moon, Sunrise, Sunset, MoveVertical, Radio } from 'lucide-react';
+import { StereoEffect } from 'three/examples/jsm/effects/StereoEffect.js';
+import { Compass, Loader2, RotateCcw, X, Play, Pause, Mountain, Footprints, Sun, Moon, Sunrise, Sunset, MoveVertical, Radio, Smartphone, Glasses, LocateFixed } from 'lucide-react';
+import { createOrientationTracker, requestWakeLock } from '../lib/orientation';
+import SummitTargetCard from './SummitTargetCard';
 import { elevationOf, haversine } from '../lib/utils';
 
 const ZOOM = 12;
@@ -176,12 +179,28 @@ function contourSegments(heights, level, mPerPixel, exaggeration) {
   return points;
 }
 
-export default function SummitView({ mountain, mountains = [], onJump, onClose, t }) {
+function Reticle({ locked }) {
+  return (
+    <svg viewBox="0 0 48 48" className={`h-12 w-12 transition-transform duration-200 ${locked ? 'scale-125' : ''}`} aria-hidden="true">
+      <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,.35)" strokeWidth="2" />
+      <circle cx="24" cy="24" r="20" fill="none" stroke={locked ? '#ff9d76' : '#fff'} strokeWidth="3" strokeLinecap="round"
+        pathLength="100" strokeDasharray="100" className="reticle-ring" transform="rotate(-90 24 24)" />
+      <circle cx="24" cy="24" r="1.8" fill="#fff" />
+    </svg>
+  );
+}
+
+export default function SummitView({ mountain, mountains = [], onJump, onClose, onDetails, t, lang }) {
   const mountRef = useRef(null);
   const labelsRef = useRef(null);
   const walkRef = useRef(null);
   const jumpRef = useRef(onJump);
-  const stateRef = useRef({ yaw: 0, pitch: -6, fov: 70, auto: false, eye: EYE_HEIGHT, live: true, minutes: localMinutesNow() });
+  const stateRef = useRef({ yaw: 0, pitch: -6, fov: 70, auto: false, eye: EYE_HEIGHT, live: true, minutes: localMinutesNow(), gyroOn: false, gyro: null, gyroBase: null, yawOffset: 0, vr: false });
+  const trackerRef = useRef(null);
+  const releaseWakeRef = useRef(null);
+  const rendererRef = useRef(null);
+  const hudRef = useRef(null);
+  const infoBuilderRef = useRef(null);
   const [status, setStatus] = useState('loading');
   const [auto, setAuto] = useState(false);
   const [walking, setWalking] = useState(false);
@@ -197,6 +216,12 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
   const [minutes, setMinutes] = useState(localMinutesNow());
   const [sky, setSky] = useState(null);
   const [panel, setPanel] = useState(null); // 'time' | null
+  const [gyroOn, setGyroOn] = useState(false);
+  const [vr, setVr] = useState(false);
+  const [target, setTarget] = useState(null);
+  const [pinned, setPinned] = useState(null);
+  const [note, setNote] = useState('');
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     if (!mountain || !mountRef.current) return;
@@ -207,6 +232,8 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
     const start = async () => {
       try {
         setStatus('loading');
+        setTarget(null);
+        setPinned(null);
         const z = ZOOM;
         const cx = tileX(mountain.lon, z);
         const cy = tileY(mountain.lat, z);
@@ -254,7 +281,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         const py = Math.max(0, Math.min(SIZE - 1, SIZE / 2 - peakZ / mPerPixel));
         // Snap to the highest DEM point within ~250 m: listed coordinates are often slightly off the top.
         let bestX = px, bestY = py, demElev = sampleHeight(heights, px, py);
-        const r = Math.ceil(250 / mPerPixel);
+        const r = mountain.noSnap ? 0 : Math.ceil(250 / mPerPixel);
         for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
           if (dx * dx + dy * dy > r * r) continue;
           const hh = sampleHeight(heights, px + dx, py + dy);
@@ -363,15 +390,15 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
 
-        // Nearby peaks are projected into the 360° view as clickable labels.
+        // Nearby peaks: the 10 closest get full labels, the rest are dots that expand when pointed at.
         const labelData = [];
         const nearby = mountains
           .filter((m) => m.id !== mountain.id && Number.isFinite(m.lat) && Number.isFinite(m.lon))
           .map((m) => ({ m, d: haversine(mountain.lat, mountain.lon, m.lat, m.lon) }))
-          .filter((item) => item.d <= 30000)
+          .filter((item) => item.d <= 35000)
           .sort((a, b) => a.d - b.d)
-          .slice(0, 18);
-        nearby.forEach(({ m, d }) => {
+          .slice(0, 45);
+        nearby.forEach(({ m, d }, rank) => {
           const local = toLocal(m.lat, m.lon);
           const ppx = SIZE / 2 + local.x / mPerPixel;
           const ppy = SIZE / 2 - local.z / mPerPixel;
@@ -380,18 +407,45 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           const vec = new THREE.Vector3(local.x, h * EXAGGERATION + 40, local.z);
           const el = document.createElement('button');
           el.type = 'button';
-          el.className = 'summit-peak-label';
+          el.className = `summit-peak-label${rank >= 10 ? ' is-dot' : ''}`;
           const name = document.createElement('strong');
           name.textContent = m._name || m.name || '';
           const meta = document.createElement('small');
           meta.textContent = `${elevationOf(m) ? `${elevationOf(m).toLocaleString()} m` : '—'} · ${(d / 1000).toFixed(1)} km`;
           el.append(name, meta);
-          el.addEventListener('click', (event) => { event.stopPropagation(); jumpRef.current?.(m); });
+          const entry = { vec, el, m, local, rank, dot: rank >= 10, isTarget: false };
+          el.addEventListener('click', (event) => { event.stopPropagation(); setPinned(buildInfo(entry)); });
           const projectedInitial = vec.clone().project(camera);
           el.style.transform = `translate(-50%, -50%) translate(${(projectedInitial.x * 0.5 + 0.5) * window.innerWidth}px, ${(-projectedInitial.y * 0.5 + 0.5) * window.innerHeight}px)`;
           labelsRef.current?.appendChild(el);
-          labelData.push({ vec, el });
+          labelData.push(entry);
         });
+
+        // Info about a peak relative to where the camera is right now.
+        const buildInfo = (entry) => {
+          const dx = entry.local.x - camera.position.x;
+          const dz = entry.local.z - camera.position.z;
+          const dist = Math.hypot(dx, dz);
+          const bearing = ((Math.atan2(dx, -dz) * 180) / Math.PI + 360) % 360;
+          const elevPeak = elevationOf(entry.m) || null;
+          const eyeAlt = groundAt(camera.position.x, camera.position.z) + elevOffset + stateRef.current.eye;
+          const rel = elevPeak != null ? elevPeak - eyeAlt : null;
+          // Straight line from the eye to the summit: is it blocked by terrain?
+          let hidden = false;
+          const steps = 36;
+          for (let i = 1; i < steps; i++) {
+            const f = i / steps;
+            const rx = camera.position.x + (entry.vec.x - camera.position.x) * f;
+            const rz = camera.position.z + (entry.vec.z - camera.position.z) * f;
+            const ry = camera.position.y + (entry.vec.y - camera.position.y) * f;
+            if (groundAt(rx, rz) * EXAGGERATION > ry + 3) { hidden = true; break; }
+          }
+          return {
+            m: entry.m, dist, bearing, dir: headingLabel(bearing), elev: elevPeak, rel, hidden,
+            vAngle: rel != null ? (Math.atan2(rel, dist) * 180) / Math.PI : null,
+          };
+        };
+        infoBuilderRef.current = buildInfo;
 
         renderer = new THREE.WebGLRenderer({ antialias: !MOBILE || window.devicePixelRatio < 2, powerPreference: 'high-performance' });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, MOBILE ? 1.75 : 2));
@@ -402,6 +456,8 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         renderer.domElement.style.cssText = 'width:100%;height:100%;display:block;touch-action:none;cursor:grab';
         texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
         mountRef.current.appendChild(renderer.domElement);
+        rendererRef.current = renderer;
+        const stereo = new StereoEffect(renderer);
 
         const resize = () => {
           if (!mountRef.current) return;
@@ -456,6 +512,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           const k = stateRef.current.fov / 74;
           const dYaw = -dx * 0.2 * k;
           const dPitch = -dy * 0.15 * k;
+          if (stateRef.current.gyroOn) { stateRef.current.yawOffset += dYaw; return; }
           stateRef.current.yaw += dYaw;
           stateRef.current.pitch = Math.max(-80, Math.min(80, stateRef.current.pitch + dPitch));
           velYaw = dYaw * 60; velPitch = dPitch * 60;
@@ -469,6 +526,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           renderer.domElement.style.cursor = 'grab';
           if (moved > 8 || Math.abs(e.clientX - pointerStartX) + Math.abs(e.clientY - pointerStartY) > 8) return;
           velYaw = velPitch = 0;
+          if (stateRef.current.gyroOn || stateRef.current.vr) return;
           const rect = renderer.domElement.getBoundingClientRect();
           ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
           ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -537,10 +595,21 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           }
         };
         refreshSun();
+        const aim = { candId: null, since: 0, lockedId: null, missAt: 0, losCheck: 0 };
+        const qInv = new THREE.Quaternion();
+        const toVec = new THREE.Vector3();
         const loop = (now) => {
           if (disposed) return;
           const dt = Math.min((now - last) / 1000, 0.1);
           last = now;
+          const sref = stateRef.current;
+          if (sref.gyroOn && sref.gyro) {
+            const g = sref.gyro;
+            if (!g.absolute && sref.gyroBase == null) sref.gyroBase = sref.yaw - g.yaw;
+            const want = g.yaw + (g.absolute ? 0 : sref.gyroBase) + sref.yawOffset;
+            sref.yaw += ((want - sref.yaw + 540) % 360) - 180;
+            sref.pitch = g.pitch;
+          }
           if (stateRef.current.auto) stateRef.current.yaw += dt * 8;
           if (!dragging && (Math.abs(velYaw) > 0.01 || Math.abs(velPitch) > 0.01)) {
             stateRef.current.yaw += velYaw * dt;
@@ -570,7 +639,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           if (camera.position.y < floorY) camera.position.y = floorY;
 
           // Ease view angles and zoom toward their targets for smooth motion.
-          const ease = 1 - Math.exp(-dt * 14);
+          const ease = 1 - Math.exp(-dt * (stateRef.current.gyroOn ? 40 : 14));
           view.yaw += (stateRef.current.yaw - view.yaw) * ease;
           view.pitch += (stateRef.current.pitch - view.pitch) * ease;
           if (Math.abs(stateRef.current.fov - camera.fov) > 0.01) {
@@ -579,7 +648,38 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           }
           camera.rotation.set(-view.pitch * Math.PI / 180, view.yaw * Math.PI / 180, 0, 'YXZ');
           skyDome.followCamera(camera);
-          renderer.render(scene, camera);
+          if (stateRef.current.vr) stereo.render(scene, camera); else renderer.render(scene, camera);
+
+          // ---- Point-and-identify: which peak is closest to the view centre?
+          // Tall, narrow target zone: aiming anywhere along a peak's slope counts, sideways must be closer.
+          qInv.copy(camera.quaternion).invert();
+          const reachX = Math.max(3, camera.fov * 0.075);
+          const reachY = reachX * 2.6;
+          let cand = null, candScore = 1;
+          labelData.forEach((entry) => {
+            toVec.copy(entry.vec).sub(camera.position).normalize().applyQuaternion(qInv);
+            if (toVec.z >= 0) return; // behind the camera
+            const score = Math.hypot(((Math.atan2(toVec.x, -toVec.z) * 180) / Math.PI) / reachX, ((Math.asin(toVec.y) * 180) / Math.PI) / reachY);
+            if (score < candScore) { candScore = score; cand = entry; }
+          });
+          if (cand) {
+            aim.missAt = 0;
+            if (aim.candId !== cand.m.id) { aim.candId = cand.m.id; aim.since = now; }
+            const progress = aim.lockedId === cand.m.id ? 1 : Math.min(1, (now - aim.since) / 280);
+            if (hudRef.current) hudRef.current.style.setProperty('--p', progress.toFixed(3));
+            if (progress >= 1 && aim.lockedId !== cand.m.id) {
+              aim.lockedId = cand.m.id;
+              setPinned(null);
+              setTarget(buildInfo(cand));
+            }
+          } else {
+            aim.candId = null;
+            if (hudRef.current) hudRef.current.style.setProperty('--p', '0');
+            if (aim.lockedId != null) {
+              if (!aim.missAt) aim.missAt = now;
+              if (now - aim.missAt > 500) { aim.lockedId = null; setTarget(null); }
+            }
+          }
 
           const groundRound = Math.round(groundAt(camera.position.x, camera.position.z) + elevOffset);
           if (Math.abs(groundRound - lastLevel) > 20) { lastLevel = groundRound; setLevelLine(groundRound); }
@@ -587,7 +687,14 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
 
           const vw = renderer.domElement.clientWidth;
           const vh = renderer.domElement.clientHeight;
-          labelData.forEach(({ vec, el }) => {
+          labelData.forEach((entry) => {
+            const { vec, el } = entry;
+            const isTarget = aim.lockedId === entry.m.id;
+            if (isTarget !== entry.isTarget) {
+              entry.isTarget = isTarget;
+              el.classList.toggle('is-target', isTarget);
+              el.classList.toggle('is-dot', !isTarget && entry.dot);
+            }
             projected.copy(vec).project(camera);
             if (projected.z < -1 || projected.z > 1 || Math.abs(projected.x) > 1.05 || Math.abs(projected.y) > 1.05) {
               el.style.display = 'none';
@@ -607,6 +714,8 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         setStatus('ready');
 
         return () => {
+          rendererRef.current = null;
+          infoBuilderRef.current = null;
           window.removeEventListener('resize', resize);
           window.removeEventListener('pointermove', move);
           window.removeEventListener('pointerup', up);
@@ -665,6 +774,79 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
     stateRef.current.live = true;
     stateRef.current.skyDirty = true;
   };
+  const noteTimer = useRef(0);
+  const showNote = (msg) => {
+    setNote(msg);
+    clearTimeout(noteTimer.current);
+    noteTimer.current = setTimeout(() => setNote(''), 6000);
+  };
+  const stopGyro = () => {
+    trackerRef.current?.stop();
+    const sref = stateRef.current;
+    sref.gyroOn = false; sref.gyro = null; sref.gyroBase = null;
+    setGyroOn(false);
+    releaseWakeRef.current?.(); releaseWakeRef.current = null;
+  };
+  // Must run straight from a tap: iOS asks for motion permission on the first await.
+  const startGyro = async () => {
+    if (!trackerRef.current) {
+      trackerRef.current = createOrientationTracker((sample) => {
+        const sref = stateRef.current;
+        sref.gyro = sample;
+        sref.sensorSeen = true;
+        if (!sample.absolute && !sref.warnedRelative) { sref.warnedRelative = true; showNote(t('vrNoCompass')); }
+      });
+    }
+    const result = await trackerRef.current.start();
+    if (result === 'denied') { showNote(t('vrDenied')); return false; }
+    if (result === 'unsupported') { showNote(t('vrNoSensor')); return false; }
+    const sref = stateRef.current;
+    sref.gyro = null; sref.gyroBase = null; sref.yawOffset = 0; sref.sensorSeen = false; sref.warnedRelative = false;
+    sref.gyroOn = true;
+    setGyroOn(true);
+    releaseWakeRef.current = await requestWakeLock();
+    setTimeout(() => { if (stateRef.current.gyroOn && !stateRef.current.sensorSeen) { stopGyro(); showNote(t('vrNoSensor')); } }, 2500);
+    return true;
+  };
+  const toggleGyro = () => (stateRef.current.gyroOn ? stopGyro() : startGyro());
+  const enterVr = async () => {
+    if (!stateRef.current.gyroOn) startGyro();
+    const sref = stateRef.current;
+    sref.vrFov = sref.fov; sref.fov = 88; sref.vr = true;
+    setVr(true); setPanel(null);
+    rendererRef.current?.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+    try { await document.documentElement.requestFullscreen?.(); } catch { /* not allowed (iOS Safari) */ }
+    try { await screen.orientation?.lock?.('landscape'); } catch { /* not supported */ }
+  };
+  const exitVr = () => {
+    const sref = stateRef.current;
+    sref.vr = false; sref.fov = sref.vrFov || 70;
+    setVr(false);
+    rendererRef.current?.setPixelRatio(Math.min(window.devicePixelRatio, MOBILE ? 1.75 : 2));
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    try { screen.orientation?.unlock?.(); } catch { /* ignore */ }
+  };
+  const locateMe = () => {
+    if (!navigator.geolocation) { showNote(t('vrLocFail')); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        jumpRef.current?.({ id: 'me', _name: t('vrHere'), lat: pos.coords.latitude, lon: pos.coords.longitude, noSnap: true, fcode: 'PT', country: 'KH', province: '' });
+      },
+      () => { setLocating(false); showNote(t('vrLocFail')); },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 },
+    );
+  };
+  useEffect(() => () => {
+    trackerRef.current?.stop();
+    releaseWakeRef.current?.();
+    clearTimeout(noteTimer.current);
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    try { screen.orientation?.unlock?.(); } catch { /* ignore */ }
+  }, []);
+  const shown = pinned || target;
+  const dockBtn = (on) => `grid h-11 w-11 place-items-center rounded-full transition-colors ${on ? 'bg-[#7ea6ff] text-[#0a1230]' : 'bg-white/10 hover:bg-white/20'}`;
   const eyeM = eyeFromSlider(eyeSlider);
   const eyeLabel = eyeM >= 1000 ? `${(eyeM / 1000).toFixed(1)} km` : `${Math.round(eyeM)} m`;
   const glass = 'border border-white/15 bg-black/45 backdrop-blur-md';
@@ -692,7 +874,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         </div>
       )}
 
-      <div className="pointer-events-none absolute inset-0 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6">
+      <div className={`pointer-events-none absolute inset-0 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6 ${vr ? 'hidden' : ''}`}>
         <div className="flex items-start justify-between gap-3">
           <div className={`pointer-events-auto min-w-0 max-w-[290px] rounded-xl px-4 py-3 ${glass}`}>
             <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#8fc7a9]">Summit view · 360°</div>
@@ -746,7 +928,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           </div>
         )}
 
-        <div className={`pointer-events-auto absolute right-3 top-1/2 flex -translate-y-1/2 flex-col items-center gap-2 rounded-full px-2 py-3 sm:right-6 ${glass}`}>
+        <div className={`pointer-events-auto absolute right-3 top-[38%] flex -translate-y-1/2 flex-col items-center gap-2 rounded-full px-2 py-3 sm:right-6 ${glass}`}>
           <MoveVertical className="h-4 w-4 text-white/70" />
           <input
             type="range" min="0" max="1" step="0.001"
@@ -758,17 +940,47 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           <span className="w-12 text-center text-[10px] font-bold tabular-nums">{eyeLabel}</span>
         </div>
 
-        <div className={`pointer-events-auto absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap rounded-full px-4 py-2 ${glass}`}>
-          <Compass ref={compassRef} className="h-5 w-5 text-[#e69167]" />
-          <span ref={headingRef} className="serif text-sm font-bold tracking-wider">N · 0°</span>
-          {walking && <span className="flex items-center gap-1 border-l border-white/20 pl-3 text-[10px] font-bold uppercase tracking-wide text-[#8fc7a9]"><Footprints className="h-3.5 w-3.5" /> Walking…</span>}
+        <div className="pointer-events-none absolute inset-x-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-20 flex flex-col items-center gap-2 sm:inset-x-6">
+          {note && <div className="pointer-events-auto max-w-[440px] rounded-xl border border-white/20 bg-black/65 px-3 py-2 text-center text-[12px] leading-snug backdrop-blur-md animate-pop-in" role="status">{note}</div>}
+          {shown
+            ? <SummitTargetCard info={shown} t={t} lang={lang} onClose={pinned ? () => setPinned(null) : null}
+                onStand={() => jumpRef.current?.(shown.m)} onDetails={onDetails ? () => onDetails(shown.m) : null} />
+            : gyroOn && <div className="rounded-full border border-white/15 bg-black/45 px-3.5 py-1.5 text-[12px] font-semibold text-white/80 backdrop-blur-md">{t('vrAim')}</div>}
+        </div>
+
+        <div className={`pointer-events-auto absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full p-1.5 ${glass}`}>
+          <div className="flex items-center gap-2 pl-3 pr-2">
+            <Compass ref={compassRef} className="h-5 w-5 shrink-0 text-[#e69167]" />
+            <span ref={headingRef} className="serif w-[4.4rem] text-sm font-bold tracking-wider">N · 0°</span>
+            {walking && <Footprints className="h-4 w-4 text-[#8fc7a9]" aria-label="Walking" />}
+          </div>
+          <button onClick={toggleGyro} aria-pressed={gyroOn} aria-label={t('vrGyro')} title={t('vrGyro')} className={dockBtn(gyroOn)}><Smartphone className="h-[18px] w-[18px]" /></button>
+          <button onClick={enterVr} aria-label={t('vrCardboard')} title={t('vrCardboard')} className={dockBtn(false)}><Glasses className="h-[18px] w-[18px]" /></button>
+          <button onClick={locateMe} disabled={locating} aria-label={t('vrLocate')} title={t('vrLocate')} className={dockBtn(mountain?.id === 'me')}>
+            {locating ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <LocateFixed className="h-[18px] w-[18px]" />}
+          </button>
         </div>
 
         <div ref={labelsRef} className="pointer-events-none absolute inset-0 overflow-hidden" />
 
-        <div className="pointer-events-none absolute inset-x-0 top-1/2 flex justify-center">
-          <span className="h-5 w-5 rounded-full border border-white/50 opacity-60" />
-        </div>
+      </div>
+
+      <div ref={hudRef} className="pointer-events-none absolute inset-0">
+        {vr ? (
+          <div className="flex h-full">
+            {[0, 1].map((i) => (
+              <div key={i} className="relative w-1/2">
+                <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-center"><Reticle locked={!!target} /></div>
+                <div className="absolute inset-x-0 bottom-[12%] flex justify-center">
+                  {shown && <SummitTargetCard compact info={shown} t={t} lang={lang} />}
+                </div>
+              </div>
+            ))}
+            <button onClick={exitVr} className="pointer-events-auto absolute left-1/2 top-2 -translate-x-1/2 rounded-full border border-white/25 bg-black/60 px-4 py-1.5 text-[11px] font-bold">{t('vrExit')}</button>
+          </div>
+        ) : (
+          <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-center"><Reticle locked={!!target} /></div>
+        )}
       </div>
     </div>
   );
