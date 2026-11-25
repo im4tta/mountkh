@@ -7,6 +7,8 @@ import { mountainMarkerSvg } from '../lib/iconmcp';
 
 const MAX_MARKERS = 600;
 
+const meIcon = L.divIcon({ className: 'bg-transparent border-0', html: '<div class="me-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+
 const TILES = {
   google: {
     url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
@@ -77,7 +79,7 @@ function Legend({ t }) {
   );
 }
 
-export default function MapView({ mountains, provider, onProviderChange, onSelect, theme, focusTarget, t }) {
+export default function MapView({ mountains, provider, onProviderChange, onSelect, theme, focusTarget, t, myPos }) {
   const mapRef = useRef(null);
   const [ready, setReady] = useState(false);
   const items = mountains.slice(0, MAX_MARKERS);
@@ -129,6 +131,7 @@ export default function MapView({ mountains, provider, onProviderChange, onSelec
             </Popup>
           </Marker>
         ))}
+        {myPos && <Marker position={[myPos.lat, myPos.lon]} icon={meIcon} zIndexOffset={2000} interactive={false} keyboard={false} />}
         <FlyController focusTarget={focusTarget} />
         <FitBounds items={items} focusTarget={focusTarget} />
       </MapContainer>

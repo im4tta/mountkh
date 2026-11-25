@@ -54,7 +54,7 @@ function AtlasMapPane({ mountains, featured, onSelect, theme }) {
 
 export default function AtlasHome({
   mountains, featured, favorites, search, onSearch, activeTab, onTabChange,
-  onToggleFav, onSelect, lang, t, onClear,
+  onToggleFav, onSelect, lang, t, onClear, distances,
 }) {
   return (
     <div className="skin-atlas grid h-full grid-cols-1 lg:grid-cols-[minmax(390px,42%)_1fr]">
@@ -86,7 +86,7 @@ export default function AtlasHome({
         </div>
         <Register
           mountains={mountains} favorites={favorites} onToggleFav={onToggleFav}
-          onSelect={onSelect} lang={lang} t={t} onClear={onClear} skin="atlas"
+          onSelect={onSelect} lang={lang} t={t} onClear={onClear} skin="atlas" distances={distances}
         />
       </div>
       <div className="relative hidden h-full lg:block">

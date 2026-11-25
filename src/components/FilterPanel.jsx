@@ -28,11 +28,11 @@ export default function FilterPanel({
             { label: t('type'), value: fcode, onChange: onFcodeChange, options: [[ '', t('allTypes') ], ...Object.entries(FCODE_META).map(([k, v]) => [k, lang === 'km' ? v.labelKm : v.label])] },
             { label: t('country'), value: country, onChange: onCountryChange, options: [[ '', t('allCountries') ], ...COUNTRY_OPTIONS.map((k) => [k, `${COUNTRY_META[k]?.flag} ${lang === 'km' ? COUNTRY_META[k]?.labelKm : COUNTRY_META[k]?.label}`])] },
             { label: t('province'), value: province, onChange: onProvinceChange, options: [[ '', t('allProvinces') ], ...provinces.map((p) => [p, p])] },
-            { label: t('sortLabel'), value: sort, onChange: onSortChange, options: [['name', t('sortName')], ['elev-desc', t('sortElevDesc')], ['elev-asc', t('sortElevAsc')]] },
+            { label: t('sortLabel'), value: sort, onChange: onSortChange, options: [['name', t('sortName')], ['elev-desc', t('sortElevDesc')], ['elev-asc', t('sortElevAsc')], ['near', t('sortNear')]], wide: true },
             { label: t('elevationBand'), value: elevBand, onChange: onElevBandChange, options: [['', t('anyElevation')], ['low', t('bandLow')], ['mid', t('bandMid')], ['high', t('bandHigh')]] },
-            { label: t('favorites'), value: favFilter ? 'yes' : '', onChange: (v) => onFavFilterChange(v === 'yes'), options: [['', t('allFeatures')], ['yes', t('favorites')]] },
+            { label: t('favorites'), value: favFilter ? 'yes' : '', onChange: (v) => onFavFilterChange(v === 'yes'), options: [['', t('allFeatures')], ['yes', t('favorites')]], wide: true },
           ].map((field) => (
-            <label key={field.label} className="flex flex-col gap-1.5">
+            <label key={field.label} className={`flex flex-col gap-1.5 ${field.wide ? 'col-span-2 md:col-span-1' : ''}`}>
               <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--muted)]">{field.label}</span>
               <select className="field h-11 text-[11px] sm:h-9" value={field.value} onChange={(e) => field.onChange(e.target.value)}>
                 {field.options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}

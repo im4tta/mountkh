@@ -859,8 +859,8 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         <div className="absolute inset-0 z-10 grid place-items-center bg-[#0d1512]">
           <div className="text-center">
             <Loader2 className="mx-auto h-9 w-9 animate-spin text-[var(--forest)]" />
-            <p className="mt-4 text-sm font-semibold">Building summit view…</p>
-            <p className="mt-1 text-[11px] text-white/60">Loading real elevation and satellite tiles</p>
+            <p className="mt-4 text-sm font-semibold">{t('summitBuilding')}</p>
+            <p className="mt-1 text-[11px] text-white/60">{t('summitBuildingSub')}</p>
           </div>
         </div>
       )}
@@ -868,8 +868,8 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
         <div className="absolute inset-0 z-10 grid place-items-center bg-[#0d1512] p-6">
           <div className="max-w-sm text-center">
             <Mountain className="mx-auto h-10 w-10 text-[var(--rust)]" />
-            <h2 className="serif mt-4 text-xl font-bold">Could not build the summit view</h2>
-            <p className="mt-2 text-xs text-white/60">Terrain or imagery tiles could not be loaded. Check your connection and try again.</p>
+            <h2 className="serif mt-4 text-xl font-bold">{t('summitErrorTitle')}</h2>
+            <p className="mt-2 text-xs text-white/60">{t('summitErrorBody')}</p>
           </div>
         </div>
       )}
@@ -877,11 +877,11 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
       <div className={`pointer-events-none absolute inset-0 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6 ${vr ? 'hidden' : ''}`}>
         <div className="flex items-start justify-between gap-3">
           <div className={`pointer-events-auto min-w-0 max-w-[290px] rounded-xl px-4 py-3 ${glass}`}>
-            <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#8fc7a9]">Summit view · 360°</div>
+            <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#8fc7a9]">{t('summitTitle')}</div>
             <h2 className="serif mt-1 truncate text-lg font-bold leading-tight">{mountain?._name}</h2>
             <div className="mt-2 flex items-baseline gap-2 border-t border-white/15 pt-2">
               <span ref={elevationRef} className="text-base font-bold text-[#e3c07a]">{peakElev ? `${peakElev.toLocaleString()} m` : '—'}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-white/55">ground · eye +{eyeLabel}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-white/55">{t('summitGround')} · {t('summitEye')} +{eyeLabel}</span>
             </div>
             <button
               onClick={() => setPanel((v) => (v === 'time' ? null : 'time'))}
@@ -891,40 +891,40 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
               {sky?.isNight ? <Moon className="h-4 w-4 shrink-0 text-[#cfd8ff]" /> : <Sun className="h-4 w-4 shrink-0 text-[#ffd27a]" />}
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold tabular-nums">{sky?.time ?? '--:--'} <span className="text-[10px] font-semibold text-white/50">ICT</span></span>
-                <span className="block truncate text-[10px] text-white/65">{sky?.phase ?? 'Loading sky…'}</span>
+                <span className="block truncate text-[10px] text-white/65">{sky ? t(sky.phase) : t('summitLoadingSky')}</span>
               </span>
-              {live && <span className="flex items-center gap-1 rounded-full bg-[#e5533d]/90 px-1.5 py-0.5 text-[9px] font-bold uppercase"><Radio className="h-2.5 w-2.5" />Live</span>}
+              {live && <span className="flex items-center gap-1 rounded-full bg-[#e5533d]/90 px-1.5 py-0.5 text-[9px] font-bold uppercase"><Radio className="h-2.5 w-2.5" />{t('summitLive')}</span>}
             </button>
           </div>
           <div className="pointer-events-auto flex shrink-0 flex-col items-center gap-2">
-            <button onClick={onClose} className={`grid h-11 w-11 place-items-center rounded-full ${glass} hover:bg-white/10`} title="Close" aria-label="Close"><X className="h-4 w-4" /></button>
-            <button onClick={toggleAuto} className={`grid h-11 w-11 place-items-center rounded-full ${glass} hover:bg-white/10`} title="Auto rotate" aria-label="Auto rotate" aria-pressed={auto}>
+            <button onClick={onClose} className={`grid h-11 w-11 place-items-center rounded-full ${glass} hover:bg-white/10`} title={t('close')} aria-label={t('close')}><X className="h-4 w-4" /></button>
+            <button onClick={toggleAuto} className={`grid h-11 w-11 place-items-center rounded-full ${glass} hover:bg-white/10`} title={t('summitAuto')} aria-label={t('summitAuto')} aria-pressed={auto}>
               {auto ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>
-            <button onClick={reset} className={`grid h-11 w-11 place-items-center rounded-full ${glass} hover:bg-white/10`} title="Reset view" aria-label="Reset view"><RotateCcw className="h-4 w-4" /></button>
+            <button onClick={reset} className={`grid h-11 w-11 place-items-center rounded-full ${glass} hover:bg-white/10`} title={t('summitReset')} aria-label={t('summitReset')}><RotateCcw className="h-4 w-4" /></button>
           </div>
         </div>
 
         {panel === 'time' && sky && (
           <div className={`pointer-events-auto absolute left-3 right-[4.75rem] top-[calc(max(0.75rem,env(safe-area-inset-top))+11.5rem)] max-w-[360px] rounded-xl p-4 sm:left-6 ${glass} animate-pop-in`}>
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/60">Sun & moon · UTC+7</span>
-              <button onClick={goLive} disabled={live} className="rounded-full border border-white/20 px-2.5 py-1 text-[10px] font-bold uppercase disabled:border-[#e5533d] disabled:text-[#ff8a75]">{live ? 'Live' : 'Live now'}</button>
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/60">{t('summitSunMoon')}</span>
+              <button onClick={goLive} disabled={live} className="rounded-full border border-white/20 px-2.5 py-1 text-[10px] font-bold uppercase disabled:border-[#e5533d] disabled:text-[#ff8a75]">{live ? t('summitLive') : t('summitLiveNow')}</button>
             </div>
             <input
               type="range" min="0" max="1439" step="5"
               value={Math.round(minutes)}
               onChange={(e) => onTime(Number(e.target.value))}
-              aria-label="Time of day"
+              aria-label={t('summitTimeOfDay')}
               className="summit-time mt-4 w-full"
             />
             <div className="mt-1 flex justify-between text-[9px] font-semibold text-white/45"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
             <div className="mt-3 grid grid-cols-3 gap-1.5 text-center text-[10px]">
-              <div className="rounded-lg bg-white/5 py-2"><Sunrise className="mx-auto h-4 w-4 text-[#ffd27a]" /><div className="mt-1 font-bold tabular-nums">{sky.sunrise}</div><div className="text-white/50">Sunrise</div></div>
-              <div className="rounded-lg bg-white/5 py-2"><Sunset className="mx-auto h-4 w-4 text-[#ff9a6a]" /><div className="mt-1 font-bold tabular-nums">{sky.sunset}</div><div className="text-white/50">Sunset</div></div>
-              <div className="rounded-lg bg-white/5 py-2"><Moon className="mx-auto h-4 w-4 text-[#cfd8ff]" /><div className="mt-1 font-bold">{sky.moonPct}%</div><div className="px-1 leading-tight text-white/50">{sky.moon}</div></div>
+              <div className="rounded-lg bg-white/5 py-2"><Sunrise className="mx-auto h-4 w-4 text-[#ffd27a]" /><div className="mt-1 font-bold tabular-nums">{sky.sunrise}</div><div className="text-white/50">{t('summitSunrise')}</div></div>
+              <div className="rounded-lg bg-white/5 py-2"><Sunset className="mx-auto h-4 w-4 text-[#ff9a6a]" /><div className="mt-1 font-bold tabular-nums">{sky.sunset}</div><div className="text-white/50">{t('summitSunset')}</div></div>
+              <div className="rounded-lg bg-white/5 py-2"><Moon className="mx-auto h-4 w-4 text-[#cfd8ff]" /><div className="mt-1 font-bold">{sky.moonPct}%</div><div className="px-1 leading-tight text-white/50">{t(sky.moon)}</div></div>
             </div>
-            <p className="mt-2 text-[10px] text-white/50">Sun altitude {sky.sunAlt}° · moon {sky.moonUp ? 'above' : 'below'} the horizon</p>
+            <p className="mt-2 text-[10px] text-white/50">{t('summitSunAlt')} {sky.sunAlt}° · {sky.moonUp ? t('summitMoonUp') : t('summitMoonDown')}</p>
           </div>
         )}
 
@@ -934,7 +934,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
             type="range" min="0" max="1" step="0.001"
             value={eyeSlider}
             onChange={(e) => onEye(Number(e.target.value))}
-            aria-label="Eye height above ground"
+            aria-label={t('summitEyeHeight')}
             className="summit-eye"
           />
           <span className="w-12 text-center text-[10px] font-bold tabular-nums">{eyeLabel}</span>
@@ -952,7 +952,7 @@ export default function SummitView({ mountain, mountains = [], onJump, onClose, 
           <div className="flex items-center gap-2 pl-3 pr-2">
             <Compass ref={compassRef} className="h-5 w-5 shrink-0 text-[#e69167]" />
             <span ref={headingRef} className="serif w-[4.4rem] text-sm font-bold tracking-wider">N · 0°</span>
-            {walking && <Footprints className="h-4 w-4 text-[#8fc7a9]" aria-label="Walking" />}
+            {walking && <Footprints className="h-4 w-4 text-[#8fc7a9]" aria-label={t('summitWalking')} />}
           </div>
           <button onClick={toggleGyro} aria-pressed={gyroOn} aria-label={t('vrGyro')} title={t('vrGyro')} className={dockBtn(gyroOn)}><Smartphone className="h-[18px] w-[18px]" /></button>
           <button onClick={enterVr} aria-label={t('vrCardboard')} title={t('vrCardboard')} className={dockBtn(false)}><Glasses className="h-[18px] w-[18px]" /></button>

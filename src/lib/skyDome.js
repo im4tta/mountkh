@@ -40,18 +40,18 @@ export function skyState(sunAltDeg) {
   };
 }
 
+// Returns i18n keys; the UI translates them.
 export function phaseLabel(sunAltDeg, rising) {
-  if (sunAltDeg < -12) return 'Night';
-  if (sunAltDeg < -6) return rising ? 'Dawn twilight' : 'Dusk twilight';
-  if (sunAltDeg < -0.8) return rising ? 'Dawn' : 'Dusk';
-  if (sunAltDeg < 6) return rising ? 'Sunrise · golden hour' : 'Sunset · golden hour';
-  if (sunAltDeg < 15) return 'Golden hour';
-  return 'Daylight';
+  if (sunAltDeg < -12) return 'phaseNight';
+  if (sunAltDeg < -6) return rising ? 'phaseDawnTwilight' : 'phaseDuskTwilight';
+  if (sunAltDeg < -0.8) return rising ? 'phaseDawn' : 'phaseDusk';
+  if (sunAltDeg < 6) return rising ? 'phaseSunrise' : 'phaseSunset';
+  if (sunAltDeg < 15) return 'phaseGolden';
+  return 'phaseDay';
 }
 
 export function moonPhaseName(phase) {
-  const names = ['New moon', 'Waxing crescent', 'First quarter', 'Waxing gibbous', 'Full moon', 'Waning gibbous', 'Last quarter', 'Waning crescent'];
-  return names[Math.round(phase * 8) % 8];
+  return `moon${Math.round(phase * 8) % 8}`;
 }
 
 function discTexture(draw, size = 128) {

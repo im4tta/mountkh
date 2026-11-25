@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect, useMemo, useCallback } from 'react';
 import { I18N } from './lib/i18n';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import { elevationOf } from './lib/utils';
+import { elevationOf, haversine } from './lib/utils';
 import Header from './components/Header';
 import FilterPanel from './components/FilterPanel';
 import ListView from './components/ListView';
@@ -40,6 +40,8 @@ export default function App() {
   const [elevBand, setElevBand] = useState('');
   const [sort, setSort] = useState('elev-desc');
   const [favFilter, setFavFilter] = useState(false);
+  const [myPos, setMyPos] = useState(null); // kept in memory only, never stored or sent anywhere
+  const [locating, setLocating] = useState(false);
 
   const [view, setView] = useState('list');
   const [provider, setProvider] = useState('google');
@@ -67,6 +69,13 @@ export default function App() {
     return () => { cancelled = true; };
   }, []);
 
+  const distances = useMemo(() => {
+    if (!myPos) return null;
+    const out = {};
+    for (const m of mountainsRaw) out[m.id] = haversine(myPos.lat, myPos.lon, m.lat, m.lon);
+    return out;
+  }, [myPos, mountainsRaw]);
+
   const filtered = useMemo(() => {
     let res = mountainsRaw.slice();
     const q = search.trim().toLowerCase();
@@ -87,9 +96,10 @@ export default function App() {
 
     if (sort === 'elev-desc') res.sort((a, b) => (elevationOf(b) || 0) - (elevationOf(a) || 0));
     else if (sort === 'elev-asc') res.sort((a, b) => (elevationOf(a) ?? Infinity) - (elevationOf(b) ?? Infinity));
+    else if (sort === 'near' && distances) res.sort((a, b) => (distances[a.id] ?? Infinity) - (distances[b.id] ?? Infinity));
     else res.sort((a, b) => a._name.localeCompare(b._name));
     return res;
-  }, [mountainsRaw, search, fcode, country, province, favFilter, activeTab, elevBand, sort, favorites]);
+  }, [mountainsRaw, search, fcode, country, province, favFilter, activeTab, elevBand, sort, favorites, distances]);
 
   const featured = useMemo(
     () => mountainsRaw.slice().sort((a, b) => (elevationOf(b) || 0) - (elevationOf(a) || 0)).slice(0, 4),
@@ -100,7 +110,7 @@ export default function App() {
   const withElevCount = useMemo(() => mountainsRaw.filter((m) => (elevationOf(m) || 0) > 0).length, [mountainsRaw]);
 
   const filterCount = [search.trim(), fcode, country, province, elevBand, favFilter ? 'f' : '', activeTab !== 'all' ? 't' : ''].filter(Boolean).length;
-  const showIntro = filterCount === 0 && sort !== 'name';
+  const showIntro = filterCount === 0 && sort !== 'name' && sort !== 'near';
 
   const clearFilters = useCallback(() => {
     setSearch(''); setFcode(''); setCountry(''); setProvince(''); setElevBand(''); setFavFilter(false); setActiveTab('all');
@@ -114,6 +124,20 @@ export default function App() {
   }, [setFavorites]);
 
   const showToast = useCallback((msg) => setToast(msg), []);
+
+  // Sort by distance needs the user's position; ask only when they pick it.
+  const changeSort = useCallback((value) => {
+    if (value !== 'near' || myPos) { setSort(value); return; }
+    if (!navigator.geolocation) { setToast(t('nearFail')); return; }
+    setLocating(true);
+    setToast(t('nearLocating'));
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setLocating(false); setMyPos({ lat: pos.coords.latitude, lon: pos.coords.longitude }); setSort('near'); setToast(''); },
+      () => { setLocating(false); setToast(t('nearFail')); },
+      { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 },
+    );
+  }, [myPos, t]);
+  const toggleNear = useCallback(() => changeSort(sort === 'near' ? 'elev-desc' : 'near'), [changeSort, sort]);
 
   const goHome = useCallback(() => {
     clearFilters();
@@ -194,7 +218,7 @@ export default function App() {
         theme={theme} onToggleTheme={toggleTheme}
         lang={lang} onToggleLang={() => setLang((l) => (l === 'km' ? 'en' : 'km'))}
         onMenu={() => setSidebarOpen(true)} onHome={goHome}
-        sort={sort} onSortChange={setSort}
+        sort={sort} onSortChange={changeSort} nearBusy={locating} onToggleNear={toggleNear}
         filtersOpen={filtersOpen} onToggleFilters={() => setFiltersOpen((v) => !v)}
         filterCount={filterCount} onClearFilters={clearFilters}
         onShuffle={shuffle} t={t}
@@ -205,7 +229,7 @@ export default function App() {
         fcode={fcode} onFcodeChange={setFcode}
         country={country} onCountryChange={setCountry}
         province={province} onProvinceChange={setProvince} provinces={provinces}
-        sort={sort} onSortChange={setSort}
+        sort={sort} onSortChange={changeSort}
         elevBand={elevBand} onElevBandChange={setElevBand}
         favFilter={favFilter} onFavFilterChange={setFavFilter}
         onClear={clearFilters} filterCount={filterCount}
@@ -227,7 +251,7 @@ export default function App() {
             search={search} onSearch={setSearch}
             activeTab={activeTab} onTabChange={setActiveTab}
             lang={lang} t={t} onClear={clearFilters}
-            onExploreMap={() => setView('map')} showIntro={showIntro} focus={!!province}
+            onExploreMap={() => setView('map')} showIntro={showIntro} focus={!!province || sort === 'near'} distances={distances}
           />
         ) : view === 'provinces' ? (
           <ProvincesView
@@ -237,7 +261,7 @@ export default function App() {
         ) : view === 'map' ? (
           <MapView
             mountains={filtered} provider={provider} onProviderChange={setProvider}
-            onSelect={showDetail} theme={theme} focusTarget={mapFocus} t={t}
+            onSelect={showDetail} theme={theme} focusTarget={mapFocus} t={t} myPos={myPos}
           />
         ) : (
           <Suspense fallback={<div className="grid h-full place-items-center bg-[var(--paper)]"><div className="text-xs font-semibold text-[var(--muted)]">Loading 3D terrain…</div></div>}>
