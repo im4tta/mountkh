@@ -7,6 +7,7 @@ import FilterPanel from './components/FilterPanel';
 import ListView from './components/ListView';
 import MapView from './components/MapView';
 import ProvincesView from './components/ProvincesView';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const TerrainView = lazy(() => import('./components/TerrainView'));
 const SummitView = lazy(() => import('./components/SummitView'));
@@ -243,6 +244,7 @@ export default function App() {
       )}
 
       <main className="app-main relative min-h-0 flex-1">
+        <ErrorBoundary resetKey={`${view}-${provider}`}>
         {view === 'list' ? (
           <ListView
             mountains={filtered} featured={featured} skin={homeSkin}
@@ -271,6 +273,7 @@ export default function App() {
             />
           </Suspense>
         )}
+        </ErrorBoundary>
       </main>
 
       <DetailPanel

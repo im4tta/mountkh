@@ -160,12 +160,12 @@ export default function Header({
         ['home', t('navHome'), <Home className="h-[22px] w-[22px]" />, view === 'list' && activeTab !== 'favorites', () => { if (activeTab === 'favorites') onTabChange('all'); onViewChange('list'); }],
         ['provinces', t('navProvinces'), <MapPin className="h-[22px] w-[22px]" />, view === 'provinces', () => onViewChange('provinces')],
         ['map', t('mapView'), <MapIcon className="h-[22px] w-[22px]" />, view === 'map', () => onViewChange('map')],
-        ['terrain', t('terrainView') || '3D', <MountainGlyph name="mountain" className="h-[22px] w-[22px]" />, view === 'terrain', () => onViewChange('terrain')],
-        ['saved', t('tabFavorites'), <Heart className="h-[22px] w-[22px]" />, view === 'list' && activeTab === 'favorites', () => { onTabChange('favorites'); onViewChange('list'); }],
+        ['terrain', t('nav3d'), <MountainGlyph name="mountain" className="h-[22px] w-[22px]" />, view === 'terrain', () => onViewChange('terrain')],
+        ['saved', t('navSaved'), <Heart className="h-[22px] w-[22px]" />, view === 'list' && activeTab === 'favorites', () => { onTabChange('favorites'); onViewChange('list'); }],
       ].map(([key, label, icon, active, go]) => (
         <button key={key} onClick={go} aria-current={active ? 'page' : undefined} className="tabbar-item">
           <span className="ic">{icon}</span>
-          <span className="max-w-full truncate px-0.5">{label}</span>
+          <span className="tabbar-label">{label}</span>
         </button>
       ))}
     </nav>

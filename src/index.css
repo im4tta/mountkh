@@ -696,3 +696,6 @@ html[lang="km"] [class*="tracking-"] { letter-spacing: 0 !important; }
 .me-dot::before { content: ""; position: absolute; inset: -10px; border-radius: 50%; background: rgba(79, 140, 255, 0.3); animation: me-pulse 2s ease-out infinite; }
 .me-dot::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: #4f8cff; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45); }
 @keyframes me-pulse { 0% { transform: scale(0.6); opacity: 1; } 100% { transform: scale(1.7); opacity: 0; } }
+
+.tabbar-label { max-width: 100%; padding: 0 1px; white-space: nowrap; line-height: 1.45; }
+@media (max-width: 359px) { .tabbar-item { font-size: 9.5px; } }
