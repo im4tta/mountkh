@@ -109,7 +109,7 @@ export default function MapView({ mountains, provider, onProviderChange, onSelec
         <TileLayer
           key={`${provider}-${theme}`}
           url={tile.url}
-          subdomains={tile.subdomains}
+          subdomains={tile.subdomains ?? 'abc'}
           attribution={tile.attribution}
           maxZoom={tile.maxZoom}
         />
